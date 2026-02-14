@@ -129,7 +129,7 @@ rwm graph
 rwm test
 ```
 
-This runs `rake test` in every package that has a Rakefile, in dependency order, using all available CPU cores.
+This runs `rake test` in every package that has a `test` task, in dependency order, using all available CPU cores. Packages without the requested task are silently skipped.
 
 ## Workspace layout
 
@@ -297,7 +297,7 @@ rwm spec                    # shortcut for `rwm run spec`
 rwm build                   # shortcut for `rwm run build`
 ```
 
-RWM runs `bundle exec rake <task>` in each package directory. Only packages with a Rakefile are included; packages without one are silently skipped.
+RWM runs `bundle exec rake <task>` in each package directory. Before execution, it checks each package for the requested task (via `rake --task-check`). Packages that don't define the task are silently excluded — they won't fail or cause their dependents to be skipped.
 
 ### How the DAG scheduler works
 

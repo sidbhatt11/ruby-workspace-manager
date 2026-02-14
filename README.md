@@ -82,7 +82,7 @@ rwm list
 | `rwm graph` | Parse all Gemfiles, build the dependency DAG, save to `.rwm/graph.json`. Use `--dot` or `--mermaid` for visualization output. |
 | `rwm check` | Validate the dependency graph against conventions. Exit 0 on success, 1 on failure. |
 | `rwm list` | Print a table of all packages with their types, paths, and dependencies. |
-| `rwm run <task> [package]` | Run a Rake task across all packages, or a single named package. |
+| `rwm run <task> [package]` | Run a Rake task across all packages (or one). Packages without the task are skipped. |
 | `rwm test [package]` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
 | `rwm affected` | Show packages affected by current changes (git diff + transitive dependents). |
 | `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
