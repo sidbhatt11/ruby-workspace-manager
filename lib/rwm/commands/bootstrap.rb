@@ -31,15 +31,14 @@ module Rwm
       def setup_overcommit(workspace)
         puts "==> Setting up overcommit..."
 
-        # Install overcommit hooks
-        success = system("bundle", "exec", "overcommit", "--install", chdir: workspace.root)
-        unless success
-          $stderr.puts "Warning: Failed to install overcommit hooks. You may need to run `overcommit --install` manually."
-          return
+        overcommit = Overcommit.new(workspace.root)
+        if overcommit.setup
+          puts "  Overcommit configured."
+        else
+          $stderr.puts "  Warning: Could not install overcommit hooks."
+          $stderr.puts "  Run `overcommit --install` manually after installing the overcommit gem."
+          puts "  Hook scripts and config created (will activate once overcommit is installed)."
         end
-
-        # TODO: Merge rwm-specific hooks into .overcommit.yml
-        puts "  Overcommit hooks installed."
       end
 
       def bootstrap_packages(workspace)
