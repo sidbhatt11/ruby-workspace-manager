@@ -49,7 +49,7 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 
 ## Enhancements
 - [x] VSCode `.code-workspace` file generation (init/bootstrap/new)
-- [x] Make overcommit opt-in (only configure if `.overcommit.yml` exists)
+- [x] Make overcommit opt-in; always install git hooks (plain or overcommit)
 - [x] Make VSCode workspace opt-in (`rwm init --vscode`)
 - [x] Remove `rwm_app` from Gemfile DSL (apps can't be depended on)
 - [x] Graph visualization (`rwm graph --dot` / `rwm graph --mermaid`)

@@ -41,7 +41,8 @@ rwm/
 │       ├── task_runner.rb        # sequential + parallel rake execution
 │       ├── task_cache.rb         # redo-style content-hash caching
 │       ├── rake.rb               # Rake DSL extension (cacheable_task)
-│       ├── overcommit.rb         # overcommit setup + rwm-specific hooks
+│       ├── git_hooks.rb          # plain git hook installation
+│       ├── overcommit.rb         # overcommit setup (when .overcommit.yml exists)
 │       └── commands/
 │           ├── init.rb           # rwm init
 │           ├── bootstrap.rb     # rwm bootstrap
@@ -82,7 +83,7 @@ rwm/
 2. **Graph**: Ruby's `TSort` stdlib (Tarjan's algorithm) for topological sort + cycle detection. Stored as JSON in `.rwm/graph.json`.
 3. **Task execution**: `bundle exec rake <task>` in each package dir. Always parallel — groups packages by execution level (packages at same level have no interdependency), runs each level concurrently.
 4. **Affected detection**: `git diff --name-only` → map files to packages → walk graph for transitive dependents. Root-level changes = all packages affected.
-5. **Overcommit for git hooks (opt-in)**: Use the [overcommit](https://github.com/sds/overcommit) gem instead of hand-rolled git hooks. Bootstrap configures rwm hooks only if `.overcommit.yml` already exists. Users who want overcommit add the gem and config themselves.
+5. **Git hooks**: Bootstrap always installs git hooks (`pre-push` runs `rwm check`, `post-commit` rebuilds graph on Gemfile changes). If `.overcommit.yml` exists, hooks are managed via overcommit. Otherwise, plain git hooks are written to `.git/hooks/`.
 6. **No CLI framework**: Plain `OptionParser` from stdlib. No Thor, no GLI.
 7. **Zero runtime deps**: Only Ruby stdlib + Bundler (ships with Ruby since 2.6). Overcommit is the sole exception — it's a development dependency that rwm sets up for users.
 8. **No config file**: The git root is the workspace root. `.rwm/` is generated state (gitignored), created on demand to store `graph.json`. Sensible defaults are baked in (base branch = auto-detected from git, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
@@ -142,7 +143,7 @@ rwm/
 - Follows the same pattern everywhere: `bundle install` → `rake bootstrap` (if available)
 - Steps:
   1. Bootstrap the root: `bundle install`, then `rake bootstrap` if defined (init ensures it is)
-  2. Set up overcommit (only if `.overcommit.yml` exists)
+  2. Install git hooks (overcommit if `.overcommit.yml` exists, plain git hooks otherwise)
   3. Bootstrap all packages: same pattern in each package (parallel by execution level)
   4. Build and validate the dependency graph (`rwm graph` + `rwm check`)
   5. Update `.code-workspace` (only if the file already exists)
@@ -183,13 +184,18 @@ rwm/
 - Preserves existing `settings`, `extensions`, `launch`, `tasks` keys — only replaces `folders`
 - Opt-in: `rwm init --vscode` creates it initially; `bootstrap` and `new` update it only if the file already exists
 
+### GitHooks (`lib/rwm/git_hooks.rb`)
+- Installs plain git hooks to `.git/hooks/`
+- `pre-push`: runs `rwm check`, blocks push on failure
+- `post-commit`: runs `rwm graph` if any Gemfile changed in the commit
+- Appends to existing hooks without duplicating
+- Used when overcommit is not present
+
 ### Overcommit (`lib/rwm/overcommit.rb`)
 - Sets up overcommit in the workspace: runs `overcommit --install`, merges rwm hooks into `.overcommit.yml`
 - Merges, not overwrites — preserves any existing user hooks in `.overcommit.yml`
-- Configures rwm-specific hooks:
-  - `pre_push`: runs `rwm check`, blocks push on failure
-  - `post_commit`: runs `rwm graph` if any Gemfile changed in the commit
-- Opt-in: bootstrap only calls setup if `.overcommit.yml` already exists
+- Configures rwm-specific hooks via overcommit's CustomScript mechanism
+- Used when `.overcommit.yml` exists in the workspace root
 
 ## graph.json Format
 

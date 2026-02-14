@@ -76,7 +76,7 @@ rwm list
 | Command | Description |
 |---------|-------------|
 | `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, update `.gitignore`, then bootstrap. Pass `--vscode` to generate a `.code-workspace` file. Idempotent. |
-| `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, build graph. Configures overcommit if `.overcommit.yml` is present. Updates `.code-workspace` if it exists. |
+| `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, build graph, install git hooks. Uses overcommit if `.overcommit.yml` is present, plain git hooks otherwise. Updates `.code-workspace` if it exists. |
 | `rwm new <app\|lib> <name>` | Scaffold a new app or library with standard structure. Updates `.code-workspace` if it exists. |
 | `rwm info <name>` | Show package details: type, path, dependencies, dependents. |
 | `rwm graph` | Parse all Gemfiles, build the dependency DAG, save to `.rwm/graph.json`. Use `--dot` or `--mermaid` for visualization output. |
@@ -116,7 +116,7 @@ The graph is serialized to `.rwm/graph.json` and used for task ordering, affecte
 
 1. `bundle install` in the workspace root
 2. `rake bootstrap` in the root (if defined)
-3. Set up overcommit hooks (if `.overcommit.yml` is present)
+3. Install git hooks (`pre-push` runs `rwm check`, `post-commit` rebuilds graph on Gemfile changes). Uses overcommit if `.overcommit.yml` is present, plain git hooks otherwise.
 4. `bundle install` + `rake bootstrap` in each package
 5. Build and validate the dependency graph
 6. Update `.code-workspace` (if it exists)
@@ -152,7 +152,7 @@ Non-cacheable tasks (plain `task`) always run.
 - **Zero runtime deps** — only Ruby stdlib and Bundler (ships with Ruby)
 - **No config file** — the git root is the workspace root; `.rwm/` is generated state (gitignored)
 - **Auto-detect base branch** — reads the remote default from git, no need to configure `main` vs `master` vs `develop`
-- **Overcommit for git hooks** — opt-in; if `.overcommit.yml` exists, `pre-push` runs `rwm check`, `post-commit` rebuilds the graph
+- **Git hooks** — `pre-push` runs `rwm check`, `post-commit` rebuilds the graph. Uses overcommit if `.overcommit.yml` exists, plain git hooks otherwise
 - **Parallel by default** — tasks run concurrently within each execution level
 - **VSCode workspace** — opt-in via `rwm init --vscode`; once created, bootstrap and new keep it updated
 - **Convention over configuration** — the directory layout _is_ the config

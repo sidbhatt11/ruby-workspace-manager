@@ -12,6 +12,7 @@ module Rwm
   autoload :TaskRunner,        "rwm/task_runner"
   autoload :AffectedDetector,  "rwm/affected_detector"
   autoload :TaskCache,         "rwm/task_cache"
+  autoload :GitHooks,          "rwm/git_hooks"
   autoload :Overcommit,        "rwm/overcommit"
   autoload :VscodeWorkspace,   "rwm/vscode_workspace"
   autoload :CLI,               "rwm/cli"

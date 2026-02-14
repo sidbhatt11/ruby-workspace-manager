@@ -11,7 +11,7 @@ module Rwm
         workspace = Workspace.find
 
         bootstrap_root(workspace)
-        setup_overcommit(workspace)
+        setup_hooks(workspace)
         bootstrap_packages(workspace)
         build_graph(workspace)
         update_vscode_workspace(workspace)
@@ -29,18 +29,26 @@ module Rwm
         run_rake_bootstrap(workspace.root)
       end
 
-      def setup_overcommit(workspace)
-        return unless File.exist?(File.join(workspace.root, ".overcommit.yml"))
+      def setup_hooks(workspace)
+        if File.exist?(File.join(workspace.root, ".overcommit.yml"))
+          puts "==> Setting up overcommit..."
 
-        puts "==> Setting up overcommit..."
-
-        overcommit = Overcommit.new(workspace.root)
-        if overcommit.setup
-          puts "  Overcommit configured."
+          overcommit = Overcommit.new(workspace.root)
+          if overcommit.setup
+            puts "  Overcommit configured."
+          else
+            $stderr.puts "  Warning: Could not install overcommit hooks."
+            $stderr.puts "  Run `overcommit --install` manually after installing the overcommit gem."
+            puts "  Hook scripts and config created (will activate once overcommit is installed)."
+          end
         else
-          $stderr.puts "  Warning: Could not install overcommit hooks."
-          $stderr.puts "  Run `overcommit --install` manually after installing the overcommit gem."
-          puts "  Hook scripts and config created (will activate once overcommit is installed)."
+          puts "==> Installing git hooks..."
+          hooks = GitHooks.new(workspace.root)
+          if hooks.setup
+            puts "  Git hooks installed."
+          else
+            $stderr.puts "  Warning: Could not install git hooks (no .git directory found)."
+          end
         end
       end
 
