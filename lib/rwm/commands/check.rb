@@ -9,7 +9,7 @@ module Rwm
 
       def run
         workspace = Workspace.find
-        graph = DependencyGraph.build(workspace)
+        graph = DependencyGraph.load(workspace)
         checker = ConventionChecker.new(graph)
         violations = checker.check
 

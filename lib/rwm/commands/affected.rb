@@ -13,7 +13,7 @@ module Rwm
 
       def run
         workspace = Workspace.find
-        graph = DependencyGraph.build(workspace)
+        graph = DependencyGraph.load(workspace)
         detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only)
 
         affected = detector.affected_packages

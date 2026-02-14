@@ -87,6 +87,25 @@ module Rwm
       levels
     end
 
+    # Load graph from cached .rwm/graph.json, falling back to build
+    def self.load(workspace)
+      path = workspace.graph_path
+      unless File.exist?(path)
+        return build(workspace)
+      end
+
+      data = JSON.parse(File.read(path))
+      graph = new
+
+      workspace.packages.each { |pkg| graph.add_package(pkg) }
+
+      data["edges"]&.each do |name, deps|
+        deps.each { |dep| graph.add_edge(name, dep) }
+      end
+
+      graph
+    end
+
     # Build graph from a workspace by parsing all Gemfiles
     def self.build(workspace)
       graph = new

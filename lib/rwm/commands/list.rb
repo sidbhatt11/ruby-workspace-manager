@@ -16,7 +16,7 @@ module Rwm
           return 0
         end
 
-        graph = DependencyGraph.build(workspace)
+        graph = DependencyGraph.load(workspace)
 
         # Calculate column widths
         name_width = [packages.map { |p| p.name.length }.max, 4].max

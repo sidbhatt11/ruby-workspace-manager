@@ -17,7 +17,7 @@ module Rwm
 
         workspace = Workspace.find
         pkg = workspace.find_package(name)
-        graph = DependencyGraph.build(workspace)
+        graph = DependencyGraph.load(workspace)
 
         deps = graph.dependencies(name)
         dependents = graph.direct_dependents(name)

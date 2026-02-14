@@ -123,6 +123,40 @@ RSpec.describe Rwm::DependencyGraph do
     end
   end
 
+  describe ".load" do
+    let(:workspace) { instance_double(Rwm::Workspace, packages: [auth, billing, api]) }
+
+    it "loads packages and edges from a cached graph.json" do
+      Dir.mktmpdir do |dir|
+        graph_path = File.join(dir, ".rwm", "graph.json")
+        allow(workspace).to receive(:graph_path).and_return(graph_path)
+
+        # Build and save a graph first
+        original = build_graph
+        original.save(graph_path, dir)
+
+        # Load from cache
+        loaded = described_class.load(workspace)
+
+        expect(loaded.packages.keys).to contain_exactly("auth", "billing", "api")
+        expect(loaded.dependencies("api")).to contain_exactly("auth", "billing")
+        expect(loaded.dependencies("billing")).to eq(["auth"])
+        expect(loaded.dependencies("auth")).to be_empty
+        expect(loaded.direct_dependents("auth")).to contain_exactly("billing", "api")
+      end
+    end
+
+    it "falls back to build when graph.json does not exist" do
+      allow(workspace).to receive(:graph_path).and_return("/nonexistent/.rwm/graph.json")
+      expect(described_class).to receive(:build).with(workspace).and_call_original
+
+      allow(Rwm::GemfileParser).to receive(:parse).and_return([])
+      graph = described_class.load(workspace)
+
+      expect(graph.packages.keys).to contain_exactly("auth", "billing", "api")
+    end
+  end
+
   describe "JSON serialization" do
     it "saves and produces valid JSON structure" do
       Dir.mktmpdir do |dir|

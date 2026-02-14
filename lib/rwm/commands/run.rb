@@ -24,7 +24,7 @@ module Rwm
         package_name = @argv.shift
 
         workspace = Workspace.find
-        graph = DependencyGraph.build(workspace)
+        graph = DependencyGraph.load(workspace)
 
         packages = if package_name
                      pkg = workspace.find_package(package_name)
