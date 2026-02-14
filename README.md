@@ -84,13 +84,8 @@ rwm list
 | `rwm test [package]` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
 | `rwm affected` | Show packages affected by current changes (git diff + transitive dependents). |
 | `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
+| `rwm run <task> --cache` | Skip packages whose inputs haven't changed (redo-style content hashing). |
 | `rwm help` | Show available commands and usage. |
-
-### Coming soon
-
-| Command | Description |
-|---------|-------------|
-| `rwm run <task> --cache` | Same as run, but skip packages whose inputs haven't changed (redo-style). |
 
 ## How dependencies work
 

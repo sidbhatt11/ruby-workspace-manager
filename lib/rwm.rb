@@ -11,6 +11,7 @@ module Rwm
   autoload :ConventionChecker, "rwm/convention_checker"
   autoload :TaskRunner,        "rwm/task_runner"
   autoload :AffectedDetector,  "rwm/affected_detector"
+  autoload :TaskCache,         "rwm/task_cache"
   autoload :Overcommit,        "rwm/overcommit"
   autoload :CLI,               "rwm/cli"
 end

@@ -9,6 +9,7 @@ module Rwm
         @argv = argv
         @affected_only = false
         @committed_only = false
+        @use_cache = false
         parse_options
       end
 
@@ -16,7 +17,7 @@ module Rwm
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task> [<package>] [--affected]"
+          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--cache]"
           return 1
         end
 
@@ -57,11 +58,34 @@ module Rwm
           return 0
         end
 
+        # Filter out cached packages if --cache is enabled
+        cache = TaskCache.new(workspace, graph) if @use_cache
+        if cache
+          cached, uncached = runnable.partition { |pkg| cache.cached?(pkg, task) }
+          cached.each { |pkg| puts "[#{pkg.name}] cached" }
+          runnable = uncached
+        end
+
+        if runnable.empty?
+          puts "All packages cached. Nothing to run."
+          return 0
+        end
+
         puts "Running `rake #{task}` across #{runnable.size} package(s)..."
         puts
 
         runner = TaskRunner.new(graph, packages: runnable)
         runner.run_task(task)
+
+        # Store cache for successful packages
+        if cache
+          runner.results.each do |result|
+            next unless result.success
+
+            pkg = workspace.find_package(result.package_name)
+            cache.store(pkg, task)
+          end
+        end
 
         puts
         if runner.success?
@@ -84,6 +108,9 @@ module Rwm
           end
           opts.on("--committed", "Only consider committed changes (with --affected)") do
             @committed_only = true
+          end
+          opts.on("--cache", "Skip packages whose inputs haven't changed") do
+            @use_cache = true
           end
         end
 
