@@ -53,10 +53,10 @@ module Rwm
           return 0
         end
 
-        # Filter to packages that have a Rakefile
-        runnable = packages.select(&:has_rakefile?)
+        # Filter to packages that have the requested rake task
+        runnable = packages.select { |pkg| pkg.has_rake_task?(task) }
         if runnable.empty?
-          puts "No packages with a Rakefile found."
+          puts "No packages with a `#{task}` rake task found."
           return 0
         end
 
