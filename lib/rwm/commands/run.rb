@@ -11,6 +11,7 @@ module Rwm
         @committed_only = false
         @no_cache = false
         @buffered = false
+        @concurrency = nil
         parse_options
       end
 
@@ -18,7 +19,7 @@ module Rwm
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--no-cache] [--buffered]"
+          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--no-cache] [--buffered] [--concurrency N]"
           return 1
         end
 
@@ -76,7 +77,9 @@ module Rwm
         puts "Running `rake #{task}` across #{runnable.size} package(s)..."
         puts
 
-        runner = TaskRunner.new(graph, packages: runnable, buffered: @buffered)
+        runner_opts = { packages: runnable, buffered: @buffered }
+        runner_opts[:concurrency] = @concurrency if @concurrency
+        runner = TaskRunner.new(graph, **runner_opts)
         runner.run_task(task)
 
         # Store cache for successful cacheable packages
@@ -116,6 +119,9 @@ module Rwm
           end
           opts.on("--buffered", "Buffer output per-package and print on completion") do
             @buffered = true
+          end
+          opts.on("--concurrency N", Integer, "Max parallel workers (default: processor count)") do |n|
+            @concurrency = n
           end
         end
 

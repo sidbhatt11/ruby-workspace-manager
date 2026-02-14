@@ -79,7 +79,7 @@ RSpec.describe Rwm::TaskRunner do
       end
     end
 
-    it "skips downstream levels on failure" do
+    it "skips transitive dependents on failure" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: {
           auth: { type: :lib },
@@ -104,7 +104,7 @@ RSpec.describe Rwm::TaskRunner do
 
         expect(auth_result.success).to be false
         expect(api_result.success).to be false
-        expect(api_result.output).to include("Skipped")
+        expect(api_result.output).to include("Skipped due to failed dependency: auth")
       end
     end
 
@@ -127,6 +127,98 @@ RSpec.describe Rwm::TaskRunner do
         expect(runner.success?).to be true
         # If run in parallel, should take ~0.5s; if sequential, ~1.0s
         expect(elapsed).to be < 0.8
+      end
+    end
+
+    it "starts a package as soon as its deps finish (diamond graph)" do
+      Dir.mktmpdir do |dir|
+        # Diamond: A -> B, A -> C, B -> D, C -> D
+        # D has no deps, B and C depend on D, A depends on B and C
+        create_fixture_workspace(dir, packages: {
+          pkg_a: { type: :app, deps: [:pkg_b, :pkg_c] },
+          pkg_b: { type: :lib, deps: [:pkg_d] },
+          pkg_c: { type: :lib, deps: [:pkg_d] },
+          pkg_d: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        timestamps = {}
+        mutex = Mutex.new
+
+        runner = described_class.new(graph, packages: workspace.packages)
+        runner.run_command do |pkg|
+          mutex.synchronize { timestamps["#{pkg.name}_start"] = Time.now }
+          sleep_time = pkg.name == "pkg_d" ? 0.3 : 0.1
+          ["ruby", "-e", "sleep #{sleep_time}; puts '#{pkg.name} done'"]
+        end
+
+        expect(runner.success?).to be true
+
+        # D runs first, then B and C can start in parallel, then A
+        # B and C should start after D finishes
+        expect(timestamps["pkg_b_start"]).to be >= timestamps["pkg_d_start"]
+        expect(timestamps["pkg_c_start"]).to be >= timestamps["pkg_d_start"]
+        # A should start after both B and C
+        expect(timestamps["pkg_a_start"]).to be >= timestamps["pkg_b_start"]
+        expect(timestamps["pkg_a_start"]).to be >= timestamps["pkg_c_start"]
+      end
+    end
+
+    it "respects concurrency limit" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        # With concurrency: 1, packages run sequentially
+        start_time = Time.now
+        runner = described_class.new(graph, packages: workspace.packages, concurrency: 1)
+        runner.run_command { |_pkg| ["ruby", "-e", "sleep 0.3; puts 'done'"] }
+        elapsed = Time.now - start_time
+
+        expect(runner.success?).to be true
+        # Sequential: ~0.6s; parallel would be ~0.3s
+        expect(elapsed).to be >= 0.5
+      end
+    end
+
+    it "skips only transitive dependents on failure, not unrelated packages" do
+      Dir.mktmpdir do |dir|
+        # auth (fails) -> api (should be skipped)
+        # billing (independent, should still run)
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          api: { type: :app, deps: [:auth] },
+          billing: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        runner = described_class.new(graph, packages: workspace.packages)
+        runner.run_command do |pkg|
+          if pkg.name == "auth"
+            ["ruby", "-e", "exit 1"]
+          else
+            ["ruby", "-e", "puts 'ran #{pkg.name}'"]
+          end
+        end
+
+        auth_result = runner.results.find { |r| r.package_name == "auth" }
+        api_result = runner.results.find { |r| r.package_name == "api" }
+        billing_result = runner.results.find { |r| r.package_name == "billing" }
+
+        expect(auth_result.success).to be false
+        expect(api_result.success).to be false
+        expect(api_result.output).to include("Skipped due to failed dependency: auth")
+        expect(billing_result.success).to be true
+        expect(billing_result.output).to include("ran billing")
       end
     end
   end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "open3"
+require "etc"
 
 module Rwm
   class TaskRunner
@@ -8,30 +9,68 @@ module Rwm
 
     attr_reader :results
 
-    def initialize(graph, packages: nil, buffered: false)
+    def initialize(graph, packages: nil, buffered: false, concurrency: Etc.nprocessors)
       @graph = graph
       @packages = packages || graph.packages.values
       @buffered = buffered
+      @concurrency = concurrency
       @results = []
       @mutex = Mutex.new
     end
 
-    # Run a shell command in each package, parallel by execution level.
+    # Run a shell command in each package using DAG scheduling.
+    # Starts each package as soon as its dependencies complete.
     # The command_proc receives a Package and returns [command, args] array.
     def run_command(&command_proc)
-      levels = compute_levels
-      failed = false
+      package_names = @packages.map(&:name).to_set
 
-      levels.each do |level_packages|
-        if failed
-          level_packages.each do |pkg|
-            record_result(pkg.name, "skipped", false, "Skipped due to earlier failure")
+      pending = @packages.dup
+      completed = Set.new
+      skipped = Set.new
+      running = {}
+
+      mutex = Mutex.new
+      condition = ConditionVariable.new
+
+      until pending.empty? && running.empty?
+        mutex.synchronize do
+          ready = pending.select { |pkg| ready?(pkg, package_names, completed) }
+
+          ready.each do |pkg|
+            break if running.size >= @concurrency
+
+            pending.delete(pkg)
+            running[pkg.name] = Thread.new do
+              result = run_single(pkg, &command_proc)
+              mutex.synchronize do
+                @results << result
+                running.delete(pkg.name)
+                if result.success
+                  completed << pkg.name
+                else
+                  skip_names = @graph.transitive_dependents(pkg.name)
+                                     .select { |n| package_names.include?(n) }
+                  skip_names.each do |name|
+                    skip_pkg = pending.find { |p| p.name == name }
+                    if skip_pkg
+                      pending.delete(skip_pkg)
+                      skipped << name
+                      @results << Result.new(
+                        package_name: name, task: "skipped",
+                        success: false, output: "Skipped due to failed dependency: #{pkg.name}"
+                      )
+                    end
+                  end
+                end
+                condition.broadcast
+              end
+            end
           end
-          next
-        end
 
-        level_results = run_level(level_packages, &command_proc)
-        failed = level_results.any? { |r| !r.success }
+          if running.any? && ready.empty?
+            condition.wait(mutex)
+          end
+        end
       end
 
       @results
@@ -54,36 +93,13 @@ module Rwm
 
     private
 
-    def compute_levels
-      # Build execution levels from the graph, but only include packages we're running
-      package_names = @packages.map(&:name).to_set
-      all_levels = @graph.execution_levels
+    def ready?(pkg, run_set, completed)
+      @graph.dependencies(pkg.name).each do |dep|
+        next unless run_set.include?(dep)
 
-      all_levels.filter_map do |level_names|
-        pkgs = level_names.filter_map do |name|
-          @graph.packages[name] if package_names.include?(name)
-        end
-        pkgs.empty? ? nil : pkgs
+        return false unless completed.include?(dep)
       end
-    end
-
-    def run_level(packages, &command_proc)
-      if packages.size == 1
-        # No need to spawn a thread for a single package
-        result = run_single(packages.first, &command_proc)
-        @mutex.synchronize { @results << result }
-        return [result]
-      end
-
-      threads = packages.map do |pkg|
-        Thread.new do
-          result = run_single(pkg, &command_proc)
-          @mutex.synchronize { @results << result }
-          result
-        end
-      end
-
-      threads.map(&:value)
+      true
     end
 
     def run_single(pkg, &command_proc)
@@ -126,17 +142,6 @@ module Rwm
         stream.puts "==> [#{name}]"
         stream.print(output) unless output.empty?
         stream.puts
-      end
-    end
-
-    def record_result(package_name, task, success, output)
-      @mutex.synchronize do
-        @results << Result.new(
-          package_name: package_name,
-          task: task,
-          success: success,
-          output: output
-        )
       end
     end
   end
