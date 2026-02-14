@@ -12,12 +12,16 @@
 #   rwm_lib "auth"
 
 require "bundler"
+require "open3"
 
 module Rwm
   module GemfileDsl
     def rwm_workspace_root
-      @rwm_workspace_root ||= `git rev-parse --show-toplevel 2>/dev/null`.strip.tap do |root|
+      @rwm_workspace_root ||= begin
+        out, _, status = Open3.capture3("git", "rev-parse", "--show-toplevel")
+        root = status.success? ? out.strip : ""
         raise "rwm: not inside a git repository" if root.empty?
+        root
       end
     end
 

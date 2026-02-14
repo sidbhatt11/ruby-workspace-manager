@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+
 module Rwm
   class AffectedDetector
     attr_reader :workspace, :graph, :base_branch
@@ -41,16 +43,22 @@ module Rwm
 
     def detect_base_branch
       # Try to read the remote's default branch
-      ref = `git -C #{workspace.root} symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`.chomp
-      unless ref.empty?
-        # refs/remotes/origin/main → main
-        return ref.sub(%r{^refs/remotes/origin/}, "")
+      ref, _, status = Open3.capture3("git", "-C", workspace.root, "symbolic-ref", "refs/remotes/origin/HEAD")
+      if status.success?
+        ref = ref.chomp
+        unless ref.empty?
+          # refs/remotes/origin/main → main
+          return ref.sub(%r{^refs/remotes/origin/}, "")
+        end
       end
 
       # Fall back: check if main or master exists
-      branches = `git -C #{workspace.root} branch --list main master 2>/dev/null`.lines.map(&:strip)
-      return "main" if branches.include?("main")
-      return "master" if branches.include?("master")
+      out, _, status = Open3.capture3("git", "-C", workspace.root, "branch", "--list", "main", "master")
+      if status.success?
+        branches = out.lines.map(&:strip)
+        return "main" if branches.include?("main")
+        return "master" if branches.include?("master")
+      end
 
       # Last resort
       "main"
@@ -60,17 +68,17 @@ module Rwm
       files = Set.new
 
       # 1. Committed changes: base branch vs HEAD
-      committed = `git -C #{workspace.root} diff --name-only #{base_branch}...HEAD 2>/dev/null`.chomp
-      committed.lines.each { |l| files << l.chomp }
+      committed, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only", "#{base_branch}...HEAD")
+      committed.lines.each { |l| files << l.chomp } if status.success?
 
       unless @committed_only
         # 2. Staged changes (not yet committed)
-        staged = `git -C #{workspace.root} diff --name-only --cached 2>/dev/null`.chomp
-        staged.lines.each { |l| files << l.chomp }
+        staged, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only", "--cached")
+        staged.lines.each { |l| files << l.chomp } if status.success?
 
         # 3. Unstaged working directory changes
-        unstaged = `git -C #{workspace.root} diff --name-only 2>/dev/null`.chomp
-        unstaged.lines.each { |l| files << l.chomp }
+        unstaged, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only")
+        unstaged.lines.each { |l| files << l.chomp } if status.success?
       end
 
       files.reject(&:empty?).to_a

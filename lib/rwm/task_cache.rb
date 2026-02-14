@@ -3,7 +3,7 @@
 require "digest"
 require "fileutils"
 require "json"
-require "shellwords"
+require "open3"
 
 module Rwm
   class TaskCache
@@ -78,8 +78,8 @@ module Rwm
     def cache_declarations(package)
       return @cache_declarations[package.name] if @cache_declarations.key?(package.name)
 
-      output = `cd #{Shellwords.escape(package.path)} && bundle exec rake rwm:cache_config 2>/dev/null`
-      @cache_declarations[package.name] = if $?.success? && !output.strip.empty?
+      output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
+      @cache_declarations[package.name] = if status.success? && !output.strip.empty?
                                              JSON.parse(output.strip)
                                            else
                                              {}

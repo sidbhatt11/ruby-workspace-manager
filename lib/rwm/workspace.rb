@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+
 module Rwm
   class Workspace
     RWM_DIR = ".rwm"
@@ -15,7 +17,8 @@ module Rwm
     # Find the workspace root via git
     def self.find(start_dir = Dir.pwd)
       dir = File.expand_path(start_dir)
-      git_root = `git -C #{dir} rev-parse --show-toplevel 2>/dev/null`.chomp
+      git_root, _, status = Open3.capture3("git", "-C", dir, "rev-parse", "--show-toplevel")
+      git_root = status.success? ? git_root.chomp : ""
 
       raise WorkspaceNotFoundError if git_root.empty?
 
