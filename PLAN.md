@@ -81,7 +81,7 @@ rwm/
 
 1. **Dependency detection**: Parse Gemfiles for `path:` deps using `Bundler::Dsl`. No source scanning — Bundler already enforces load paths.
 2. **Graph**: Ruby's `TSort` stdlib (Tarjan's algorithm) for topological sort + cycle detection. Stored as JSON in `.rwm/graph.json`.
-3. **Task execution**: `bundle exec rake <task>` in each package dir. Always parallel — groups packages by execution level (packages at same level have no interdependency), runs each level concurrently.
+3. **Task execution**: `bundle exec rake <task>` in each package dir. Uses a DAG scheduler with a thread pool — each package starts as soon as all its dependencies finish, maximizing parallelism without waiting for unrelated siblings. Concurrency is configurable (`--concurrency N`, defaults to processor count).
 4. **Affected detection**: `git diff --name-only` → map files to packages → walk graph for transitive dependents. Root-level changes = all packages affected.
 5. **Git hooks**: Bootstrap always installs git hooks (`pre-push` runs `rwm check`, `post-commit` rebuilds graph on Gemfile changes). If `.overcommit.yml` exists, hooks are managed via overcommit. Otherwise, plain git hooks are written to `.git/hooks/`.
 6. **No CLI framework**: Plain `OptionParser` from stdlib. No Thor, no GLI.
@@ -127,10 +127,12 @@ rwm/
 - Walks graph to find transitive dependents of changed packages
 
 ### TaskRunner (`lib/rwm/task_runner.rb`)
-- Always runs in parallel: groups packages by execution level, runs each level concurrently (Thread-based)
-- Packages at the same level have no interdependencies, so they're safe to run simultaneously
-- Skips downstream levels on failure
-- Buffers output per-package and prints on completion — no interleaving across packages. Within a level, output appears in completion order. Successful packages print to stdout, failed packages print to stderr with a failure header.
+- DAG scheduler with a fixed-size thread pool (default: processor count, configurable via `--concurrency`)
+- Maintains a ready-set: packages whose dependencies have all completed successfully
+- Workers pull from the ready-set — a package starts the instant its deps finish, no waiting for unrelated packages
+- On failure: the failed package's transitive dependents are marked as skipped (they can never satisfy their deps)
+- Buffers output per-package and prints on completion — no interleaving across packages. Output appears in completion order. Successful packages print to stdout, failed packages print to stderr with a failure header.
+- `execution_levels` method remains available on `DependencyGraph` for display/debugging but is no longer used for scheduling
 
 ### Init (`lib/rwm/commands/init.rb`)
 - Creates `libs/` and `apps/` directories if not already present
@@ -266,11 +268,18 @@ rwm/
 30. Update `rwm new` scaffold to use `cacheable_task` in Rakefiles
 31. Specs
 
-### Phase 8: Hardening
+### Phase 8: Hardening (does not depend on Phase 9)
 32. Graph staleness detection — `DependencyGraph.load` compares mtime of `graph.json` against all package Gemfiles. If any Gemfile is newer, auto-rebuilds and re-saves the graph. Cheap check (one `File.mtime` per package), avoids stale edges when someone edits a Gemfile without running `rwm graph`.
 33. Buffered task output — `TaskRunner` already captures output via `Open3.capture3`, but prints it as each package finishes. With multiple packages in a level, output from different packages can appear back-to-back in confusing order. Change to: buffer all output per-package, print each package's complete block on completion with a clear header (`==> [package_name]`), and print failures to stderr. This makes output scannable in large monorepos.
 34. Bootstrap error handling — replace `exit 1` calls in `Bootstrap#bootstrap_packages` with `raise BootstrapError`. The CLI dispatcher (`cli.rb`) already rescues `Rwm::Error` subclasses and exits with code 1. This keeps bootstrap usable as library code (e.g. from Rake tasks or tests) without killing the process.
 35. Specs for all above
+
+### Phase 9: DAG Scheduler
+36. Replace execution-level scheduling in `TaskRunner` with a ready-set DAG scheduler. The current approach groups packages into discrete levels and waits for the entire level to complete before starting the next. The DAG scheduler instead maintains a set of "ready" packages (all deps satisfied) and a fixed-size thread pool. Workers pull from the ready-set — a package starts the instant its dependencies finish, no waiting for unrelated siblings. This eliminates idle time when packages in the same level have very different durations.
+37. Thread pool with configurable concurrency — `--concurrency N` flag on `rwm run` (defaults to `Etc.nprocessors`). Stored as `@concurrency` on TaskRunner. Each worker thread loops: lock mutex, wait on condition variable for ready-set to be non-empty, pop a package, run it, on completion mark it done, check if any new packages are now ready (all deps in done-set), signal condition variable, repeat until all packages are done or skipped.
+38. Failure handling — when a package fails, mark all its transitive dependents (via `DependencyGraph#transitive_dependents`) as skipped. They'll never enter the ready-set. Remaining unaffected packages continue running.
+39. Update `Bootstrap#bootstrap_packages` to pass concurrency through to TaskRunner (bootstrap can use the same scheduler).
+40. Specs: test that packages start as soon as deps finish (not waiting for level), test concurrency limiting, test failure skipping of transitive dependents.
 
 ## Verification
 
@@ -284,4 +293,4 @@ rwm/
 - Remote caching (shared across CI + devs)
 - Custom composite tasks (config inside `.rwm/` if needed)
 - Watch mode
-- Full DAG scheduler — replace execution levels with a ready-set + thread pool model where packages start as soon as their deps finish, rather than waiting for the entire level. Worth it when monorepos grow to 50+ packages with uneven task durations.
+

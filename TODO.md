@@ -63,3 +63,10 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [ ] Buffered task output — print per-package output on completion instead of interleaving
 - [ ] Replace `exit 1` in bootstrap with exceptions (`BootstrapError`)
 - [ ] Specs
+
+## Phase 9: DAG Scheduler
+
+- [ ] Replace execution-level scheduling with a ready-set DAG scheduler
+- [ ] Configurable concurrency (`--concurrency N`, default: processor count)
+- [ ] Update bootstrap to use DAG scheduler
+- [ ] Specs
