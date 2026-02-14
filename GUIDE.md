@@ -7,6 +7,7 @@ This guide explains how RWM works, why it makes the choices it does, and how to 
 - [What problem does RWM solve?](#what-problem-does-rwm-solve)
 - [Core concepts](#core-concepts)
 - [Getting started](#getting-started)
+- [Bootstrap and daily workflow](#bootstrap-and-daily-workflow)
 - [Workspace layout](#workspace-layout)
 - [Managing packages](#managing-packages)
 - [Dependencies between packages](#dependencies-between-packages)
@@ -131,6 +132,56 @@ rwm test
 ```
 
 This runs `rake test` in every package that has a `test` task, in dependency order, using all available CPU cores. Packages without the requested task are silently skipped.
+
+## Bootstrap and daily workflow
+
+### What bootstrap does
+
+`rwm bootstrap` is the single command that gets a workspace into a working state. It:
+
+1. Runs `bundle install` in the workspace root.
+2. Runs `rake bootstrap` in the root (if defined — use this for binstubs, shared tooling, etc.).
+3. Installs git hooks (`pre-push` runs `rwm check`, `post-commit` rebuilds the graph on Gemfile changes). Uses [Overcommit](https://github.com/sds/overcommit) if `.overcommit.yml` is present, plain git hooks otherwise.
+4. Runs `bundle install` in every package (in parallel).
+5. Runs `rake bootstrap` in packages that define it (in parallel).
+6. Builds and validates the dependency graph.
+7. Updates the `.code-workspace` file (if it exists).
+
+`rwm init` calls `bootstrap` as its last step. Both commands are idempotent — safe to run repeatedly.
+
+### After cloning
+
+When a new developer joins the project:
+
+```sh
+git clone <repo>
+cd <repo>
+rwm bootstrap
+```
+
+That's it. Every package is installed, the dependency graph is built, git hooks are active, and the workspace is ready.
+
+### Daily workflow
+
+At the start of each working session, pull the latest changes and re-bootstrap:
+
+```sh
+git pull --rebase
+rwm bootstrap
+```
+
+This ensures your local workspace reflects any packages that were added, removed, or had their dependencies changed by teammates. Bootstrap is idempotent and fast — it only does work where needed (Bundler skips already-installed gems, the graph rebuilds only if Gemfiles changed).
+
+After bootstrapping, work on your feature branch as usual:
+
+```sh
+git checkout -b my-feature
+# ... make changes ...
+rwm test                        # run all specs
+rwm run spec --affected         # or just the affected ones
+```
+
+Before pushing, `rwm check` runs automatically via the pre-push hook to validate conventions. If you've changed any Gemfiles, the post-commit hook rebuilds the graph automatically.
 
 ## Workspace layout
 
