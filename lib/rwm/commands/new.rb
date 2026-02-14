@@ -71,6 +71,12 @@ module Rwm
 
           gemspec
 
+          group :development, :test do
+            gem "rake"
+            gem "rspec"
+            gem "rwm"
+          end
+
           require "rwm/gemfile"
           # rwm_lib "some_dependency"
         GEMFILE
@@ -89,10 +95,6 @@ module Rwm
             spec.files = Dir.glob("lib/**/*")
             spec.require_paths = ["lib"]
             spec.required_ruby_version = ">= 3.1.0"
-
-            spec.add_development_dependency "rake"
-            spec.add_development_dependency "rspec"
-            spec.add_development_dependency "rwm"
           end
         GEMSPEC
       end
