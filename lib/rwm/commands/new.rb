@@ -83,20 +83,24 @@ module Rwm
       end
 
       def write_gemspec(pkg_path, name, type)
-        File.write(File.join(pkg_path, "#{name}.gemspec"), <<~GEMSPEC)
-          # frozen_string_literal: true
-
-          Gem::Specification.new do |spec|
-            spec.name = "#{name}"
-            spec.version = "0.1.0"
-            spec.authors = ["TODO: Your name"]
-            spec.summary = "TODO: Summary of #{name}"
-
-            spec.files = Dir.glob("lib/**/*")
-            spec.require_paths = ["lib"]
-            spec.required_ruby_version = ">= 3.4.0"
-          end
-        GEMSPEC
+        lines = [
+          '# frozen_string_literal: true',
+          '',
+          'Gem::Specification.new do |spec|',
+          "  spec.name = \"#{name}\"",
+          '  spec.version = "0.1.0"',
+          '  spec.authors = ["TODO: Your name"]',
+          "  spec.summary = \"TODO: Summary of #{name}\"",
+          '',
+        ]
+        lines << '  spec.files = Dir.glob("lib/**/*")' if type == "lib"
+        lines.concat([
+          '  spec.require_paths = ["lib"]',
+          '  spec.required_ruby_version = ">= 3.4.0"',
+          'end',
+          '',
+        ])
+        File.write(File.join(pkg_path, "#{name}.gemspec"), lines.join("\n"))
       end
 
       def write_rakefile(pkg_path, name)
