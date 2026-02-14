@@ -13,6 +13,7 @@ This guide explains how RWM works, why it makes the choices it does, and how to 
 - [The dependency graph](#the-dependency-graph)
 - [Running tasks](#running-tasks)
 - [Task caching](#task-caching)
+- [Sharing the cache across CI and developers](#sharing-the-cache-across-ci-and-developers)
 - [Affected detection](#affected-detection)
 - [Git hooks](#git-hooks)
 - [Convention enforcement](#convention-enforcement)
@@ -428,9 +429,60 @@ This forces all tasks to run regardless of cache state. Useful when debugging or
 
 ### Cache storage
 
-The cache lives in `.rwm/cache/` — local, ephemeral, and gitignored. Each cache entry is a single file named `<package>-<task>` containing the content hash string. Deleting `.rwm/cache/` is always safe; it just means the next run will re-execute everything.
+The cache lives in `.rwm/cache/` — local and gitignored by default. Each cache entry is a single file named `<package>-<task>` containing the content hash string. Deleting `.rwm/cache/` is always safe; it just means the next run will re-execute everything.
 
-There is no remote/shared cache yet. This is a [planned future feature](#future).
+### Sharing the cache across CI and developers
+
+A cold cache means every run re-executes everything. In CI, that's the default — every job starts fresh. The fix is to persist the cache from your main branch and restore it on subsequent runs. Feature branch CI and local developers then inherit a warm cache where only their changes trigger re-runs.
+
+**How it works:** Cache entries are content hashes with no absolute paths or machine-specific data. They're portable across machines. Restoring a stale cache is always safe — stale entries simply won't match the current content hash and the task re-runs. There's no risk of false cache hits, only harmless misses.
+
+#### GitHub Actions
+
+Use `actions/cache` to persist `.rwm/cache/` across CI runs:
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Restore RWM cache
+        uses: actions/cache@v4
+        with:
+          path: .rwm/cache
+          key: rwm-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            rwm-${{ runner.os }}-
+
+      - name: Run specs
+        run: bundle exec rwm run spec --affected --committed
+```
+
+The `restore-keys` prefix match means feature branch runs restore the most recent cache from any prior run (typically from main). After the job, the cache is saved under the current SHA. Over time, this means:
+
+- **Main branch CI** builds and saves a full cache after every merge.
+- **Feature branch CI** restores main's cache, then only re-runs what the branch actually changed.
+- **Subsequent runs on the same branch** restore their own cache from the previous push.
+
+#### Local development
+
+Developers can download the CI cache to warm their local `.rwm/cache/`. With the GitHub CLI:
+
+```sh
+# Download the latest cache from CI (requires gh CLI)
+gh cache list --key rwm- --limit 1
+gh cache download <cache-id> --dir .rwm/cache
+```
+
+Or simply run `rwm test` once on a fresh clone to populate the local cache. After that first run, subsequent runs only re-execute what changed — the same content-hash model applies locally.
 
 ## Affected detection
 
@@ -595,7 +647,6 @@ The task cache uses SHA256 content hashes rather than file timestamps. Timestamp
 
 ## What's not here yet
 
-- **Remote caching** — Sharing cache across CI and developer machines (like Nx Cloud or Bazel's remote cache).
 - **Custom composite tasks** — Defining multi-step task pipelines beyond what Rake provides.
 - **Watch mode** — Re-running affected tasks automatically when files change.
 
