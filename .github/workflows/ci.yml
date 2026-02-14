@@ -21,8 +21,23 @@ jobs:
       - name: Run bundler-audit
         run: bundle exec bundler-audit check --update
 
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ruby
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
   test:
-    needs: security
+    needs: [security, analyze]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
