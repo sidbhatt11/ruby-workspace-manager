@@ -2,6 +2,7 @@
 
 require "tsort"
 require "json"
+require "fileutils"
 
 module Rwm
   class DependencyGraph
