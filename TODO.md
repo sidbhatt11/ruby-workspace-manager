@@ -56,3 +56,10 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [x] GitHub Actions CI workflow
 - [x] Load dependency graph from cached `graph.json` instead of rebuilding (`DependencyGraph.load`)
 - [x] Avoid double graph build in bootstrap
+
+## Phase 8: Hardening
+
+- [ ] Graph staleness detection — `DependencyGraph.load` auto-rebuilds when any Gemfile is newer than `graph.json`
+- [ ] Buffered task output — print per-package output on completion instead of interleaving
+- [ ] Replace `exit 1` in bootstrap with exceptions (`BootstrapError`)
+- [ ] Specs

@@ -113,7 +113,7 @@ rwm/
 - Maintains adjacency list (deps) and reverse adjacency list (dependents)
 - Provides: `topological_order`, `detect_cycles`, `transitive_dependents`, `execution_levels`
 - Serializes to/from JSON for `.rwm/graph.json`
-- `DependencyGraph.load(workspace)`: reads edges from cached `.rwm/graph.json` and populates packages from the workspace. Falls back to `build` if the cache doesn't exist. Used by most commands (run, list, check, affected, info) to avoid re-parsing every Gemfile.
+- `DependencyGraph.load(workspace)`: reads edges from cached `.rwm/graph.json` and populates packages from the workspace. Auto-rebuilds when any package's Gemfile has an mtime newer than `graph.json` (staleness detection). Falls back to `build` if the cache doesn't exist. Used by most commands (run, list, check, affected, info) to avoid re-parsing every Gemfile.
 - `DependencyGraph.build(workspace)`: full rebuild by parsing all Gemfiles. Used by `graph` and `bootstrap`.
 
 ### ConventionChecker (`lib/rwm/convention_checker.rb`)
@@ -130,7 +130,7 @@ rwm/
 - Always runs in parallel: groups packages by execution level, runs each level concurrently (Thread-based)
 - Packages at the same level have no interdependencies, so they're safe to run simultaneously
 - Skips downstream levels on failure
-- Streams output with `[package_name]` prefixes
+- Buffers output per-package and prints on completion — no interleaving across packages. Within a level, output appears in completion order. Successful packages print to stdout, failed packages print to stderr with a failure header.
 
 ### Init (`lib/rwm/commands/init.rb`)
 - Creates `libs/` and `apps/` directories if not already present
@@ -152,7 +152,7 @@ rwm/
   6. Update `.code-workspace` (only if the file already exists)
 - Root Rakefile has a `bootstrap` task by default (prints a helpful message, developers customize it for binstubs, shared tooling, etc.)
 - Streams progress with clear status output
-- Fails fast with a helpful message if any step fails
+- Raises `BootstrapError` on failure (no `exit 1` in library code)
 - Idempotent — safe to re-run
 
 ### GemfileDsl (`lib/rwm/gemfile.rb`)
@@ -266,6 +266,12 @@ rwm/
 30. Update `rwm new` scaffold to use `cacheable_task` in Rakefiles
 31. Specs
 
+### Phase 8: Hardening
+32. Graph staleness detection — `DependencyGraph.load` compares mtime of `graph.json` against all package Gemfiles. If any Gemfile is newer, auto-rebuilds and re-saves the graph. Cheap check (one `File.mtime` per package), avoids stale edges when someone edits a Gemfile without running `rwm graph`.
+33. Buffered task output — `TaskRunner` already captures output via `Open3.capture3`, but prints it as each package finishes. With multiple packages in a level, output from different packages can appear back-to-back in confusing order. Change to: buffer all output per-package, print each package's complete block on completion with a clear header (`==> [package_name]`), and print failures to stderr. This makes output scannable in large monorepos.
+34. Bootstrap error handling — replace `exit 1` calls in `Bootstrap#bootstrap_packages` with `raise BootstrapError`. The CLI dispatcher (`cli.rb`) already rescues `Rwm::Error` subclasses and exits with code 1. This keeps bootstrap usable as library code (e.g. from Rake tasks or tests) without killing the process.
+35. Specs for all above
+
 ## Verification
 
 1. `bundle exec rspec` — all unit specs pass
@@ -273,8 +279,9 @@ rwm/
 3. Verify overcommit hooks fire correctly on commit/push
 4. Verify task caching skips unchanged packages and invalidates on changes
 
-## Future Considerations (Not in v1)
+## Future Considerations
 
 - Remote caching (shared across CI + devs)
 - Custom composite tasks (config inside `.rwm/` if needed)
 - Watch mode
+- Full DAG scheduler — replace execution levels with a ready-set + thread pool model where packages start as soon as their deps finish, rather than waiting for the entire level. Worth it when monorepos grow to 50+ packages with uneven task durations.
