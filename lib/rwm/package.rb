@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "pathname"
+require "open3"
 
 module Rwm
   class Package
@@ -27,8 +28,10 @@ module Rwm
     def has_rake_task?(task)
       return false unless has_rakefile?
 
-      system("bundle", "exec", "rake", "-s", "--task-check", task, chdir: path,
-             out: File::NULL, err: File::NULL)
+      output, _, status = Open3.capture3("bundle", "exec", "rake", "-P", chdir: path)
+      return false unless status.success?
+
+      output.lines.any? { |line| line.strip == "rake #{task}" }
     end
 
     def gemfile_path
