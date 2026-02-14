@@ -20,9 +20,9 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [x] Specs
 
 ## Phase 3: Affected Detection
-- [ ] AffectedDetector (git diff + graph walk)
-- [ ] Commands::Affected + --affected flag
-- [ ] Specs
+- [x] AffectedDetector (git diff + graph walk)
+- [x] Commands::Affected + --affected flag
+- [x] Specs
 
 ## Phase 4: Overcommit Integration
 - [ ] Overcommit setup + hook config

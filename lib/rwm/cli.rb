@@ -12,7 +12,8 @@ module Rwm
       "graph"     => "Commands::Graph",
       "check"     => "Commands::Check",
       "list"      => "Commands::List",
-      "run"       => "Commands::Run"
+      "run"       => "Commands::Run",
+      "affected"  => "Commands::Affected"
     }.freeze
 
     # Shortcuts that expand to `run <task>`
@@ -78,6 +79,7 @@ module Rwm
           check             Validate dependency graph and conventions
           run <task>        Run a rake task across all packages (parallel)
           test              Shortcut for `rwm run test`
+          affected          Show packages affected by current changes
           list              List all packages in the workspace
 
         Options:

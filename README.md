@@ -84,13 +84,14 @@ rwm list
 | `rwm run <task>` | Run a Rake task across all packages in parallel (by execution level). |
 | `rwm test` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
 
+| `rwm affected` | Show packages affected by current changes (git diff + transitive dependents). |
+| `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
+
 ### Coming soon
 
 | Command | Description |
 |---------|-------------|
 | `rwm run <task> --cache` | Same as run, but skip packages whose inputs haven't changed (redo-style). |
-| `rwm affected` | Show packages affected by current changes (git diff). |
-| `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
 
 ## How dependencies work
 

@@ -1,24 +1,40 @@
 # frozen_string_literal: true
 
+require "optparse"
+
 module Rwm
   module Commands
     class Run
       def initialize(argv)
         @argv = argv
+        @affected_only = false
+        parse_options
       end
 
       def run
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task>"
+          $stderr.puts "Usage: rwm run <task> [--affected]"
           return 1
         end
 
         workspace = Workspace.find
         graph = DependencyGraph.build(workspace)
 
-        packages = workspace.packages
+        packages = if @affected_only
+                     detector = AffectedDetector.new(workspace, graph)
+                     affected = detector.affected_packages
+                     if affected.empty?
+                       puts "No affected packages. Nothing to run."
+                       return 0
+                     end
+                     puts "Running on #{affected.size} affected package(s)..."
+                     affected
+                   else
+                     workspace.packages
+                   end
+
         if packages.empty?
           puts "No packages found."
           return 0
@@ -47,6 +63,18 @@ module Rwm
           failed.each { |r| $stderr.puts "  - #{r.package_name}" }
           1
         end
+      end
+
+      private
+
+      def parse_options
+        parser = OptionParser.new do |opts|
+          opts.on("--affected", "Only run on affected packages") do
+            @affected_only = true
+          end
+        end
+
+        parser.order!(@argv)
       end
     end
   end

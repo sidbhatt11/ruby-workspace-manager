@@ -10,5 +10,6 @@ module Rwm
   autoload :DependencyGraph,   "rwm/dependency_graph"
   autoload :ConventionChecker, "rwm/convention_checker"
   autoload :TaskRunner,        "rwm/task_runner"
+  autoload :AffectedDetector,  "rwm/affected_detector"
   autoload :CLI,               "rwm/cli"
 end
