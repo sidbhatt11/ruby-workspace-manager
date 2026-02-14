@@ -1,4 +1,5 @@
 [![CI](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml)
+![Ruby](https://img.shields.io/badge/Ruby-%3E%3D%203.4-red)
 
 # RWM — Ruby Workspace Manager
 
