@@ -29,9 +29,9 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [x] Wire into rwm init
 - [x] Specs
 
-## Phase 5: Task Caching (opt-in)
+## Phase 5: Task Caching
 - [x] TaskCache (content-hash, redo-style)
-- [x] Wire `--cache` into `rwm run`
+- [x] Wire caching into `rwm run`
 - [x] Specs
 
 ## Phase 6: Gemfile DSL

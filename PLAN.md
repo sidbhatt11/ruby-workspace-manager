@@ -72,6 +72,7 @@ rwm/
 | `rwm check` | Validate graph (cycles, conventions, staleness). Exit 0/1/2 |
 | `rwm test` | Run `rake test` in all packages (topo order). Shortcut for `rwm run test` |
 | `rwm run <task> --affected` | Only run on packages changed since base branch + their dependents |
+| `rwm run <task> --no-cache` | Bypass automatic task-level caching |
 | `rwm list` | Print table of packages (name, type, path, deps) |
 | `rwm affected` | Show which packages are affected by current changes |
 
@@ -86,7 +87,7 @@ rwm/
 7. **Zero runtime deps**: Only Ruby stdlib + Bundler (ships with Ruby since 2.6). Overcommit is the sole exception — it's a development dependency that rwm sets up for users.
 8. **No config file**: The git root is the workspace root. `.rwm/` is generated state (gitignored), created on demand to store `graph.json`. Sensible defaults are baked in (base branch = auto-detected from git, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
 11. **Auto-detect base branch**: Instead of hardcoding `main`, use `git symbolic-ref refs/remotes/origin/HEAD` to detect the remote's default branch. Falls back to `main`, then `master`. No config needed — works with any branching convention.
-12. **Task caching (opt-in, redo-style)**: Inspired by DJB's redo. For each (package, task) pair, compute a content hash of the package's source files + the hashes of its dependencies. If the hash matches a previous successful run, skip the task entirely. Cache is local (`.rwm/cache/`), ephemeral, gitignored. Opt-in via `--cache` flag — by default tasks always run. Developers who want speed enable it; developers who want correctness don't have to think about it.
+12. **Task caching (task-level, redo-style)**: Inspired by DJB's redo. Tasks declared with `cacheable_task` in Rakefiles are automatically cached. For each (package, task) pair, compute a content hash of the package's source files + the hashes of its dependencies. If the hash matches a previous successful run, skip the task entirely. If outputs are declared, they must exist for the cache to be valid. Cache is local (`.rwm/cache/`), ephemeral, gitignored. Bypass with `--no-cache`.
 9. **Package scaffolding**: `rwm new app/lib <name>` generates a standard Ruby package structure so every package is consistent. Includes Gemfile, gemspec, Rakefile (with an empty `bootstrap` task as a hint), `lib/<name>.rb`, and a basic spec setup.
 10. **Bootstrap as onboarding**: `rwm bootstrap` is the single command a developer runs after cloning. It handles everything: `bundle install` in every package (topological order so deps are available first), runs `rake bootstrap` where available, builds the dependency graph, validates conventions, and sets up overcommit. Idempotent — safe to run again.
 
@@ -232,9 +233,9 @@ rwm/
 19. Wire into `rwm init`
 20. Specs
 
-### Phase 5: Task Caching (opt-in)
+### Phase 5: Task Caching
 21. TaskCache — content-hash based, redo-style
-22. Wire `--cache` into `rwm run`
+22. Wire caching into `rwm run`
 23. Specs
 
 ### Phase 6: Gemfile DSL
