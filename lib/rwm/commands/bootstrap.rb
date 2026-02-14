@@ -14,6 +14,7 @@ module Rwm
         setup_overcommit(workspace)
         bootstrap_packages(workspace)
         build_graph(workspace)
+        update_vscode_workspace(workspace)
 
         puts
         puts "Bootstrap complete!"
@@ -90,6 +91,10 @@ module Rwm
         puts "==> Validating conventions..."
         require "rwm/commands/check"
         Commands::Check.new([]).run
+      end
+
+      def update_vscode_workspace(workspace)
+        VscodeWorkspace.new(workspace.root).generate(workspace.packages)
       end
 
       def run_bundle_install(dir)

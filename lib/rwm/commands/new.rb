@@ -30,6 +30,7 @@ module Rwm
         raise PackageExistsError, name if File.directory?(pkg_path)
 
         scaffold(pkg_path, name, type)
+        update_vscode_workspace(workspace)
 
         puts "Created #{type} '#{name}' at #{dir}/#{name}/"
         puts
@@ -41,6 +42,12 @@ module Rwm
       end
 
       private
+
+      def update_vscode_workspace(workspace)
+        # Use a fresh Workspace to pick up the newly scaffolded package
+        fresh_workspace = Workspace.find(workspace.root)
+        VscodeWorkspace.new(fresh_workspace.root).generate(fresh_workspace.packages)
+      end
 
       def scaffold(pkg_path, name, type)
         FileUtils.mkdir_p(File.join(pkg_path, "lib", name))

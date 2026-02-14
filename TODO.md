@@ -46,3 +46,6 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [x] Replace --cache with --no-cache in Commands::Run
 - [x] Update `rwm new` scaffold
 - [x] Specs
+
+## Enhancements
+- [x] VSCode `.code-workspace` file generation (init/bootstrap/new)

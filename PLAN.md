@@ -176,6 +176,12 @@ rwm/
 - Cache lives in `.rwm/cache/` — local, ephemeral, gitignored
 - Auto-enabled for tasks declared with `cacheable_task` — bypass with `--no-cache`
 
+### VscodeWorkspace (`lib/rwm/vscode_workspace.rb`)
+- Generates/updates a `<dirname>.code-workspace` file for VSCode multi-root workspace support
+- `folders` array: root `.` first, then libs sorted, then apps sorted (relative paths)
+- Preserves existing `settings`, `extensions`, `launch`, `tasks` keys — only replaces `folders`
+- Called by `init` (empty), `bootstrap` (all packages), and `new` (after scaffolding)
+
 ### Overcommit (`lib/rwm/overcommit.rb`)
 - Sets up overcommit in the workspace: runs `overcommit --install`, merges rwm hooks into `.overcommit.yml`
 - Merges, not overwrites — preserves any existing user hooks in `.overcommit.yml`

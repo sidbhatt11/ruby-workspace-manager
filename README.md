@@ -73,9 +73,9 @@ rwm list
 
 | Command | Description |
 |---------|-------------|
-| `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, update `.gitignore`, then bootstrap. Idempotent. |
-| `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, then build graph. |
-| `rwm new <app\|lib> <name>` | Scaffold a new app or library with standard structure. |
+| `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, `.code-workspace`, update `.gitignore`, then bootstrap. Idempotent. |
+| `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, build graph, update `.code-workspace`. |
+| `rwm new <app\|lib> <name>` | Scaffold a new app or library with standard structure and update `.code-workspace`. |
 | `rwm info <name>` | Show package details: type, path, dependencies, dependents. |
 | `rwm graph` | Parse all Gemfiles, build the dependency DAG, save to `.rwm/graph.json`. |
 | `rwm check` | Validate the dependency graph against conventions. Exit 0 on success, 1 on failure. |
@@ -151,6 +151,7 @@ Non-cacheable tasks (plain `task`) always run.
 - **Auto-detect base branch** — reads the remote default from git, no need to configure `main` vs `master` vs `develop`
 - **Overcommit for git hooks** — `pre-push` runs `rwm check`, `post-commit` rebuilds the graph
 - **Parallel by default** — tasks run concurrently within each execution level
+- **VSCode workspace** — automatically generates/updates a `.code-workspace` file for multi-root workspace support
 - **Convention over configuration** — the directory layout _is_ the config
 
 ## Development

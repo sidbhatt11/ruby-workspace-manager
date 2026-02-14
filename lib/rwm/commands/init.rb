@@ -34,6 +34,7 @@ module Rwm
         create_gemfile(root)
         create_rakefile(root)
         update_gitignore(root)
+        generate_vscode_workspace(root)
 
         puts "Workspace initialized. Running bootstrap..."
         puts
@@ -69,6 +70,11 @@ module Rwm
 
         File.write(path, RAKEFILE_TEMPLATE)
         puts "Created Rakefile"
+      end
+
+      def generate_vscode_workspace(root)
+        VscodeWorkspace.new(root).generate([])
+        puts "Created #{File.basename(root)}.code-workspace"
       end
 
       def update_gitignore(root)

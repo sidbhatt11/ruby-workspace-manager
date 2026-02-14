@@ -13,5 +13,6 @@ module Rwm
   autoload :AffectedDetector,  "rwm/affected_detector"
   autoload :TaskCache,         "rwm/task_cache"
   autoload :Overcommit,        "rwm/overcommit"
+  autoload :VscodeWorkspace,   "rwm/vscode_workspace"
   autoload :CLI,               "rwm/cli"
 end
