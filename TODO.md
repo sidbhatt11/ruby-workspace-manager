@@ -4,7 +4,7 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 
 ## Phase 1: Core Foundation
 - [ ] Gem skeleton (gemspec, bin/rwm, lib/rwm.rb, version, errors)
-- [ ] Workspace discovery (find `.rwm/` dir) + Package model
+- [ ] Workspace discovery (git root) + Package model
 - [ ] GemfileParser (Bundler DSL path deps)
 - [ ] DependencyGraph (TSort DAG, cycle detection)
 - [ ] ConventionChecker (structural rules)

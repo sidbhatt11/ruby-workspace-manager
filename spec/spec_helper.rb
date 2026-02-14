@@ -20,7 +20,8 @@ end
 # Helper to create a temporary monorepo fixture
 module FixtureHelper
   def create_fixture_workspace(dir, packages: {})
-    FileUtils.mkdir_p(File.join(dir, ".rwm"))
+    # Initialize a git repo so Workspace.find can detect the root
+    system("git", "init", "--quiet", dir) unless File.directory?(File.join(dir, ".git"))
     FileUtils.mkdir_p(File.join(dir, "libs"))
     FileUtils.mkdir_p(File.join(dir, "apps"))
 

@@ -17,7 +17,7 @@ An Nx-like monorepo tool for Ruby. Convention-over-configuration, zero runtime d
 - Graph uses `TSort` from stdlib
 - All specs in `spec/rwm/` using RSpec
 - Gemspec requires Ruby >= 3.1.0
-- No config file — `.rwm/` directory is the workspace root marker and holds all rwm state
+- No config file — git root is the workspace root; `.rwm/` is generated state (gitignored)
 - Overcommit for git hooks (not hand-rolled)
 
 ## Rules

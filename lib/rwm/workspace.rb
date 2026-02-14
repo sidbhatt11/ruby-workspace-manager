@@ -2,7 +2,7 @@
 
 module Rwm
   class Workspace
-    MARKER_DIR = ".rwm"
+    RWM_DIR = ".rwm"
     PACKAGE_DIRS = %w[libs apps].freeze
     GRAPH_FILE = "graph.json"
 
@@ -12,22 +12,18 @@ module Rwm
       @root = root
     end
 
-    # Walk up from the given directory to find the workspace root (.rwm/ directory)
+    # Find the workspace root via git
     def self.find(start_dir = Dir.pwd)
       dir = File.expand_path(start_dir)
+      git_root = `git -C #{dir} rev-parse --show-toplevel 2>/dev/null`.chomp
 
-      loop do
-        return new(dir) if File.directory?(File.join(dir, MARKER_DIR))
+      raise WorkspaceNotFoundError if git_root.empty?
 
-        parent = File.dirname(dir)
-        raise WorkspaceNotFoundError if parent == dir
-
-        dir = parent
-      end
+      new(git_root)
     end
 
     def rwm_dir
-      File.join(root, MARKER_DIR)
+      File.join(root, RWM_DIR)
     end
 
     def graph_path

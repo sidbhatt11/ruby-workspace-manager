@@ -4,26 +4,26 @@ require "spec_helper"
 
 RSpec.describe Rwm::Workspace do
   describe ".find" do
-    it "finds workspace root by .rwm/ directory" do
+    it "finds workspace root at git root" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir)
         workspace = described_class.find(dir)
-        expect(workspace.root).to eq(dir)
+        expect(workspace.root).to eq(File.realpath(dir))
       end
     end
 
-    it "walks up parent directories to find root" do
+    it "walks up to git root from a subdirectory" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir)
         nested = File.join(dir, "libs", "some_lib")
         FileUtils.mkdir_p(nested)
 
         workspace = described_class.find(nested)
-        expect(workspace.root).to eq(dir)
+        expect(workspace.root).to eq(File.realpath(dir))
       end
     end
 
-    it "raises WorkspaceNotFoundError when no .rwm/ exists" do
+    it "raises WorkspaceNotFoundError when not in a git repo" do
       Dir.mktmpdir do |dir|
         expect { described_class.find(dir) }.to raise_error(Rwm::WorkspaceNotFoundError)
       end

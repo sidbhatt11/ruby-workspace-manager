@@ -45,7 +45,7 @@ module Rwm
       private
 
       def create_directories(root)
-        %w[libs apps .rwm].each do |dir|
+        %w[libs apps].each do |dir|
           path = File.join(root, dir)
           unless File.directory?(path)
             FileUtils.mkdir_p(path)

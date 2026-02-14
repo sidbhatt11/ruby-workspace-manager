@@ -5,7 +5,7 @@ module Rwm
 
   class WorkspaceNotFoundError < Error
     def initialize
-      super("Could not find .rwm/ directory. Are you inside an rwm workspace? Run `rwm init` to create one.")
+      super("Not a git repository. rwm uses the git root as the workspace root. Run `git init` first, then `rwm init`.")
     end
   end
 

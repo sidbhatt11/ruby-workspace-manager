@@ -15,20 +15,22 @@ RWM manages Ruby monorepos with multiple apps and libraries. It builds a depende
 ## Workspace structure
 
 ```
-my-project/
+my-project/              # git root = workspace root
 ├── libs/
-│   ├── auth/           # shared library
+│   ├── auth/            # shared library
 │   │   ├── Gemfile
 │   │   ├── auth.gemspec
 │   │   ├── Rakefile
 │   │   └── lib/auth.rb
 │   └── billing/
 ├── apps/
-│   ├── api/            # application
+│   ├── api/             # application
 │   └── web/
-└── .rwm/               # workspace marker
-    └── graph.json      # auto-generated dependency graph
+└── .rwm/                # generated state (gitignored)
+    └── graph.json
 ```
+
+The git root is the workspace root. `.rwm/` is created automatically to store generated state — add it to your `.gitignore`.
 
 ## Installation
 
@@ -114,7 +116,8 @@ This tells RWM that `billing` depends on `auth`. The graph is serialized to `.rw
 ## Design decisions
 
 - **Zero runtime deps** — only Ruby stdlib and Bundler (ships with Ruby)
-- **No config file** — `.rwm/` is the workspace marker; sensible defaults are baked in
+- **No config file** — the git root is the workspace root; `.rwm/` is generated state (gitignored)
+- **Auto-detect base branch** — reads the remote default from git, no need to configure `main` vs `master` vs `develop`
 - **Overcommit for git hooks** — `pre-push` runs `rwm check`, `post-commit` rebuilds the graph
 - **Parallel by default** — tasks run concurrently within each execution level
 - **Convention over configuration** — the directory layout _is_ the config

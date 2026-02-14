@@ -7,15 +7,15 @@ Build an Nx-like monorepo tool for Ruby called **rwm**. Convention-over-configur
 ## Monorepo Convention
 
 ```
-my-project/
-├── libs/           # shared libraries (can depend on other libs)
-│   ├── auth/       # each has Gemfile, gemspec, Rakefile
+my-project/              # git root = workspace root
+├── libs/                # shared libraries (can depend on other libs)
+│   ├── auth/            # each has Gemfile, gemspec, Rakefile
 │   └── billing/
-├── apps/           # applications (can depend on libs only)
+├── apps/                # applications (can depend on libs only)
 │   ├── api/
 │   └── web/
-└── .rwm/           # rwm state directory (workspace root marker)
-    └── graph.json  # auto-generated dependency graph
+└── .rwm/                # generated state (gitignored)
+    └── graph.json       # auto-generated dependency graph
 ```
 
 **Rules:** libs cannot import apps. Apps cannot import other apps. No cycles.
@@ -60,7 +60,7 @@ rwm/
 
 | Command | Behavior |
 |---------|----------|
-| `rwm init` | Create dirs, Gemfile (if missing), Rakefile (if missing), then call `bootstrap`. Idempotent — safe to re-run to fix a broken state |
+| `rwm init` | Create `libs/`, `apps/`, Gemfile, Rakefile (if missing), then call `bootstrap`. Idempotent — safe to re-run |
 | `rwm bootstrap` | `bundle install` + `rake bootstrap` in root, then same in all packages, then build graph. The "clone and go" command |
 | `rwm new app <name>` | Scaffold a new app in `apps/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
 | `rwm new lib <name>` | Scaffold a new lib in `libs/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
@@ -81,14 +81,15 @@ rwm/
 5. **Overcommit for git hooks**: Use the [overcommit](https://github.com/sds/overcommit) gem instead of hand-rolled git hooks. `rwm init` installs overcommit and configures rwm-specific hooks (e.g. `pre-push` runs `rwm check`, `post-commit` rebuilds graph on Gemfile changes). Users are expected to use overcommit — rwm leans into it.
 6. **No CLI framework**: Plain `OptionParser` from stdlib. No Thor, no GLI.
 7. **Zero runtime deps**: Only Ruby stdlib + Bundler (ships with Ruby since 2.6). Overcommit is the sole exception — it's a development dependency that rwm sets up for users.
-8. **No config file**: The `.rwm/` directory is the workspace root marker and contains all rwm state. No `.rwm.yml`. Sensible defaults are baked in (base branch = `main`, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
+8. **No config file**: The git root is the workspace root. `.rwm/` is generated state (gitignored), created on demand to store `graph.json`. Sensible defaults are baked in (base branch = auto-detected from git, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
+11. **Auto-detect base branch**: Instead of hardcoding `main`, use `git symbolic-ref refs/remotes/origin/HEAD` to detect the remote's default branch. Falls back to `main`, then `master`. No config needed — works with any branching convention.
 9. **Package scaffolding**: `rwm new app/lib <name>` generates a standard Ruby package structure so every package is consistent. Includes Gemfile, gemspec, Rakefile (with an empty `bootstrap` task as a hint), `lib/<name>.rb`, and a basic spec setup.
 10. **Bootstrap as onboarding**: `rwm bootstrap` is the single command a developer runs after cloning. It handles everything: `bundle install` in every package (topological order so deps are available first), runs `rake bootstrap` where available, builds the dependency graph, validates conventions, and sets up overcommit. Idempotent — safe to run again.
 
 ## Core Components
 
 ### Workspace (`lib/rwm/workspace.rb`)
-- Walks up from cwd to find `.rwm/` directory (the workspace root marker)
+- Uses `git rev-parse --show-toplevel` to find the workspace root (git root = workspace root)
 - Discovers packages by scanning `libs/` and `apps/` for directories containing a `Gemfile`
 
 ### Package (`lib/rwm/package.rb`)
@@ -112,7 +113,8 @@ rwm/
 - Raises `ConventionError` with all violations listed
 
 ### AffectedDetector (`lib/rwm/affected_detector.rb`)
-- Runs `git diff --name-only` against base branch (default: `main`)
+- Auto-detects the base branch via `git symbolic-ref refs/remotes/origin/HEAD` (falls back to `main` then `master`)
+- Runs `git diff --name-only` against the detected base branch
 - Maps changed files to packages by path prefix
 - Walks graph to find transitive dependents of changed packages
 
@@ -123,11 +125,11 @@ rwm/
 - Streams output with `[package_name]` prefixes
 
 ### Init (`lib/rwm/commands/init.rb`)
-- Creates the workspace structure (`libs/`, `apps/`, `.rwm/`) if not already present
+- Creates `libs/` and `apps/` directories if not already present
 - Creates a root `Gemfile` if missing (includes `rwm` and `overcommit` gems)
 - Creates a root `Rakefile` if missing (includes an empty `bootstrap` task that prints a helpful message)
 - Calls `bootstrap` as the last step
-- Idempotent — if `.rwm/` was deleted or things are broken, just run `rwm init` again to recover
+- Idempotent — safe to re-run anytime to fix a broken state
 
 ### Bootstrap (`lib/rwm/commands/bootstrap.rb`)
 - Follows the same pattern everywhere: `bundle install` → `rake bootstrap` (if available)
@@ -172,7 +174,7 @@ rwm/
 
 ### Phase 1: Core Foundation
 1. Gem skeleton (gemspec, bin/rwm, lib/rwm.rb, version.rb, errors.rb)
-2. Workspace — root discovery (walks up to find `.rwm/`) + package scanning
+2. Workspace — root discovery (git root) + package scanning
 3. Package — lib/app model
 4. GemfileParser — Bundler DSL path dep extraction
 5. DependencyGraph — TSort DAG
