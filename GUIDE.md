@@ -56,13 +56,13 @@ Think of it as [Nx](https://nx.dev) for Ruby — but with zero runtime dependenc
 Add RWM to your root Gemfile:
 
 ```ruby
-gem "rwm"
+gem "ruby_workspace_manager"
 ```
 
 Or install globally:
 
 ```sh
-gem install rwm
+gem install ruby_workspace_manager
 ```
 
 ### Initializing a workspace
@@ -76,7 +76,7 @@ rwm init
 `rwm init` creates the workspace structure:
 
 - `libs/` and `apps/` directories
-- A root `Gemfile` (with `gem "rwm"`)
+- A root `Gemfile` (with `gem "ruby_workspace_manager"`)
 - A root `Rakefile` (with a `bootstrap` task)
 - `.rwm/` added to `.gitignore`
 
@@ -211,7 +211,7 @@ my-project/                # git root = workspace root
 │   │   └── ...
 │   └── web/
 │       └── ...
-├── Gemfile                # root Gemfile (contains gem "rwm")
+├── Gemfile                # root Gemfile (contains gem "ruby_workspace_manager")
 ├── Rakefile               # root Rakefile (bootstrap task, etc.)
 └── .rwm/                  # generated state (gitignored)
     ├── graph.json         # serialized dependency graph
@@ -235,8 +235,8 @@ Package names must start with a lowercase letter and contain only lowercase lett
 
 The scaffold includes:
 
-- **Gemfile** — Sources from rubygems.org, loads the gemspec, requires `rwm/gemfile` for the `rwm_lib` helper.
-- **Gemspec** — Minimal spec with `rwm` as a development dependency.
+- **Gemfile** — Sources from rubygems.org, loads the gemspec, includes `rake`, `rspec`, and `ruby_workspace_manager` as development/test dependencies, and requires `rwm/gemfile` for the `rwm_lib` helper.
+- **Gemspec** — Minimal spec with package metadata.
 - **Rakefile** — Uses `cacheable_task` from `rwm/rake` for the `:spec` task, plus an empty `:bootstrap` task for custom setup steps.
 - **lib/<name>.rb** — Module stub.
 - **spec/spec_helper.rb** — Minimal RSpec configuration.
@@ -360,7 +360,7 @@ rwm spec                    # shortcut for `rwm run spec`
 rwm build                   # shortcut for `rwm run build`
 ```
 
-RWM runs `bundle exec rake <task>` in each package directory. Before execution, it checks each package for the requested task (via `rake --task-check`). Packages that don't define the task are silently excluded — they won't fail or cause their dependents to be skipped.
+RWM runs `bundle exec rake <task>` in each package directory. Before execution, it checks each package for the requested task (via `rake -P`). Packages that don't define the task are silently excluded — they won't fail or cause their dependents to be skipped.
 
 ### How the DAG scheduler works
 

@@ -11,7 +11,7 @@ module Rwm
 
         source "https://rubygems.org"
 
-        gem "rwm"
+        gem "ruby_workspace_manager"
       GEMFILE
 
       RAKEFILE_TEMPLATE = <<~RAKEFILE

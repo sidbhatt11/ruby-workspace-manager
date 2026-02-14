@@ -3,7 +3,7 @@
 require_relative "lib/rwm/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "rwm"
+  spec.name = "ruby_workspace_manager"
   spec.version = Rwm::VERSION
   spec.authors = ["Siddharth Bhatt"]
   spec.summary = "Ruby Workspace Manager — an Nx-like monorepo tool for Ruby"

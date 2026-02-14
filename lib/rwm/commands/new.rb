@@ -74,7 +74,7 @@ module Rwm
           group :development, :test do
             gem "rake"
             gem "rspec"
-            gem "rwm"
+            gem "ruby_workspace_manager"
           end
 
           require "rwm/gemfile"
