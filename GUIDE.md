@@ -14,7 +14,6 @@ This guide explains how RWM works, why it makes the choices it does, and how to 
 - [The dependency graph](#the-dependency-graph)
 - [Running tasks](#running-tasks)
 - [Task caching](#task-caching)
-- [Sharing the cache across CI and developers](#sharing-the-cache-across-ci-and-developers)
 - [Affected detection](#affected-detection)
 - [Git hooks](#git-hooks)
 - [Convention enforcement](#convention-enforcement)
@@ -93,18 +92,7 @@ rwm new lib billing
 rwm new app api
 ```
 
-Each command scaffolds a full gem structure:
-
-```
-libs/auth/
-├── Gemfile         # includes `require "rwm/gemfile"` for the rwm_lib helper
-├── auth.gemspec
-├── Rakefile        # includes cacheable_task :spec
-├── lib/
-│   └── auth.rb
-└── spec/
-    └── spec_helper.rb
-```
+Each command scaffolds a full gem structure. See [Managing packages](#managing-packages) for details on what's included.
 
 ### Declaring dependencies
 
@@ -548,15 +536,7 @@ The `restore-keys` prefix match means feature branch runs restore the most recen
 
 #### Local development
 
-Developers can download the CI cache to warm their local `.rwm/cache/`. With the GitHub CLI:
-
-```sh
-# Download the latest cache from CI (requires gh CLI)
-gh cache list --key rwm- --limit 1
-gh cache download <cache-id> --dir .rwm/cache
-```
-
-Or simply run `rwm test` once on a fresh clone to populate the local cache. After that first run, subsequent runs only re-execute what changed — the same content-hash model applies locally.
+Locally, the cache warms itself: run `rwm test` once after cloning and subsequent runs skip unchanged packages. The CI cache strategy matters most for CI itself, where every job would otherwise start cold.
 
 ## Affected detection
 
@@ -679,7 +659,7 @@ The file is opt-in: `rwm init --vscode` creates it initially. After that, `rwm b
 | `rwm graph [--dot\|--mermaid]` | Rebuild dependency graph. Optionally output DOT or Mermaid format. |
 | `rwm check` | Validate conventions. Exit 0 on pass, 1 on failure. |
 | `rwm list` | Print a table of all packages. |
-| `rwm run <task> [pkg]` | Run a Rake task across packages. |
+| `rwm run <task> [pkg]` | Run a Rake task across packages. Packages without the task are skipped. |
 | `rwm test` | Shortcut for `rwm run test`. |
 | `rwm spec` | Shortcut for `rwm run spec`. |
 | `rwm build` | Shortcut for `rwm run build`. |
