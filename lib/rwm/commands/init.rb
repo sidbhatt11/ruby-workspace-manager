@@ -33,6 +33,7 @@ module Rwm
         create_directories(root)
         create_gemfile(root)
         create_rakefile(root)
+        update_gitignore(root)
 
         puts "Workspace initialized. Running bootstrap..."
         puts
@@ -68,6 +69,25 @@ module Rwm
 
         File.write(path, RAKEFILE_TEMPLATE)
         puts "Created Rakefile"
+      end
+
+      def update_gitignore(root)
+        path = File.join(root, ".gitignore")
+        entry = ".rwm/"
+
+        if File.exist?(path)
+          content = File.read(path)
+          return if content.lines.any? { |line| line.strip == entry }
+
+          File.open(path, "a") do |f|
+            f.puts unless content.end_with?("\n")
+            f.puts entry
+          end
+          puts "Added #{entry} to .gitignore"
+        else
+          File.write(path, "#{entry}\n")
+          puts "Created .gitignore"
+        end
       end
     end
   end

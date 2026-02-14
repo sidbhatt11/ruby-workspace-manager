@@ -73,7 +73,7 @@ rwm list
 
 | Command | Description |
 |---------|-------------|
-| `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, then bootstrap. Idempotent. |
+| `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, update `.gitignore`, then bootstrap. Idempotent. |
 | `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, then build graph. |
 | `rwm new <app\|lib> <name>` | Scaffold a new app or library with standard structure. |
 | `rwm info <name>` | Show package details: type, path, dependencies, dependents. |

@@ -60,7 +60,7 @@ rwm/
 
 | Command | Behavior |
 |---------|----------|
-| `rwm init` | Create `libs/`, `apps/`, Gemfile, Rakefile (if missing), then call `bootstrap`. Idempotent — safe to re-run |
+| `rwm init` | Create dirs, Gemfile, Rakefile, update `.gitignore`, then call `bootstrap`. Idempotent — safe to re-run |
 | `rwm bootstrap` | `bundle install` + `rake bootstrap` in root, then same in all packages, then build graph. The "clone and go" command |
 | `rwm new app <name>` | Scaffold a new app in `apps/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
 | `rwm new lib <name>` | Scaffold a new lib in `libs/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
@@ -128,6 +128,7 @@ rwm/
 - Creates `libs/` and `apps/` directories if not already present
 - Creates a root `Gemfile` if missing (includes `rwm` and `overcommit` gems)
 - Creates a root `Rakefile` if missing (includes an empty `bootstrap` task that prints a helpful message)
+- Adds `.rwm/` to `.gitignore` (appends if file exists, creates if not; skips if already present)
 - Calls `bootstrap` as the last step
 - Idempotent — safe to re-run anytime to fix a broken state
 
