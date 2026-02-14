@@ -113,6 +113,8 @@ rwm/
 - Maintains adjacency list (deps) and reverse adjacency list (dependents)
 - Provides: `topological_order`, `detect_cycles`, `transitive_dependents`, `execution_levels`
 - Serializes to/from JSON for `.rwm/graph.json`
+- `DependencyGraph.load(workspace)`: reads edges from cached `.rwm/graph.json` and populates packages from the workspace. Falls back to `build` if the cache doesn't exist. Used by most commands (run, list, check, affected, info) to avoid re-parsing every Gemfile.
+- `DependencyGraph.build(workspace)`: full rebuild by parsing all Gemfiles. Used by `graph` and `bootstrap`.
 
 ### ConventionChecker (`lib/rwm/convention_checker.rb`)
 - Checks: no app→app deps, no lib→app deps, no cycles
@@ -144,9 +146,10 @@ rwm/
 - Steps:
   1. Bootstrap the root: `bundle install`, then `rake bootstrap` if defined (init ensures it is)
   2. Install git hooks (overcommit if `.overcommit.yml` exists, plain git hooks otherwise)
-  3. Bootstrap all packages: same pattern in each package (parallel by execution level)
-  4. Build and validate the dependency graph (`rwm graph` + `rwm check`)
-  5. Update `.code-workspace` (only if the file already exists)
+  3. Build the dependency graph once (used for execution ordering in subsequent steps)
+  4. Bootstrap all packages: same pattern in each package (parallel by execution level)
+  5. Save the graph to `.rwm/graph.json` and validate conventions
+  6. Update `.code-workspace` (only if the file already exists)
 - Root Rakefile has a `bootstrap` task by default (prints a helpful message, developers customize it for binstubs, shared tooling, etc.)
 - Streams progress with clear status output
 - Fails fast with a helpful message if any step fails

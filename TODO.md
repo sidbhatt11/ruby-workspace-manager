@@ -54,3 +54,5 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [x] Remove `rwm_app` from Gemfile DSL (apps can't be depended on)
 - [x] Graph visualization (`rwm graph --dot` / `rwm graph --mermaid`)
 - [x] GitHub Actions CI workflow
+- [x] Load dependency graph from cached `graph.json` instead of rebuilding (`DependencyGraph.load`)
+- [x] Avoid double graph build in bootstrap
