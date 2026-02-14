@@ -4,17 +4,17 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 
 ## Phase 1: Core Foundation
 - [ ] Gem skeleton (gemspec, bin/rwm, lib/rwm.rb, version, errors)
-- [ ] Config loader (.rwm.yml)
-- [ ] Workspace discovery + Package model
+- [ ] Workspace discovery (find `.rwm/` dir) + Package model
 - [ ] GemfileParser (Bundler DSL path deps)
 - [ ] DependencyGraph (TSort DAG, cycle detection)
 - [ ] ConventionChecker (structural rules)
 - [ ] CLI dispatcher
-- [ ] Commands: init, graph, check, list
+- [ ] Commands: init, bootstrap, graph, check, list
+- [ ] Commands: new (app/lib scaffolding), info
 - [ ] Specs
 
 ## Phase 2: Task Execution
-- [ ] TaskRunner (sequential + parallel)
+- [ ] TaskRunner (parallel by execution level)
 - [ ] Commands::Run + task shortcuts
 - [ ] Specs
 
@@ -23,8 +23,7 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [ ] Commands::Affected + --affected flag
 - [ ] Specs
 
-## Phase 4: Git Hooks
-- [ ] GitHooks (post-commit, pre-push)
-- [ ] Commands::Hooks
+## Phase 4: Overcommit Integration
+- [ ] Overcommit setup + hook config
 - [ ] Wire into rwm init
 - [ ] Specs
