@@ -63,12 +63,12 @@ module Rwm
         digest.update(File.read(file))
       end
 
-      # Include dependency content hashes (transitive invalidation)
+      # Include dependency content hashes (transitive invalidation).
+      # If a dependency is missing, let it raise — a stale graph should
+      # not silently produce incorrect cache hits.
       @graph.dependencies(package.name).sort.each do |dep_name|
         dep_pkg = @workspace.find_package(dep_name)
         digest.update(content_hash(dep_pkg))
-      rescue PackageNotFoundError
-        next
       end
 
       @content_hashes[package.name] = digest.hexdigest
