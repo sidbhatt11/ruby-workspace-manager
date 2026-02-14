@@ -180,4 +180,100 @@ RSpec.describe Rwm::TaskCache do
       end
     end
   end
+
+  describe "#outputs_exist?" do
+    it "returns true when output files match the pattern" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        # Create an output file matching the pattern
+        FileUtils.mkdir_p(File.join(pkg.path, "pkg"))
+        File.write(File.join(pkg.path, "pkg", "auth-0.1.0.gem"), "fake gem")
+
+        expect(cache.outputs_exist?(pkg, "pkg/*.gem")).to be true
+      end
+    end
+
+    it "returns false when no output files match" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        expect(cache.outputs_exist?(pkg, "pkg/*.gem")).to be false
+      end
+    end
+  end
+
+  describe "#cached? with output verification" do
+    it "invalidates when declared outputs are missing" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        # Store the cache
+        cache.store(pkg, "build")
+
+        # Stub cache_declarations to return output pattern
+        allow(cache).to receive(:cache_declarations).with(pkg).and_return({
+          "build" => { "output" => "pkg/*.gem" }
+        })
+
+        # No output files exist → should be false
+        expect(cache.cached?(pkg, "build")).to be false
+      end
+    end
+
+    it "returns true when declared outputs exist" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        # Store the cache
+        cache.store(pkg, "build")
+
+        # Create output files
+        FileUtils.mkdir_p(File.join(pkg.path, "pkg"))
+        File.write(File.join(pkg.path, "pkg", "auth-0.1.0.gem"), "fake gem")
+
+        # Stub cache_declarations to return output pattern
+        allow(cache).to receive(:cache_declarations).with(pkg).and_return({
+          "build" => { "output" => "pkg/*.gem" }
+        })
+
+        expect(cache.cached?(pkg, "build")).to be true
+      end
+    end
+  end
+
+  describe "#cacheable?" do
+    it "returns true for tasks declared via cache_declarations" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        allow(cache).to receive(:cache_declarations).with(pkg).and_return({
+          "spec" => { "output" => nil }
+        })
+
+        expect(cache.cacheable?(pkg, "spec")).to be true
+        expect(cache.cacheable?(pkg, "bootstrap")).to be false
+      end
+    end
+  end
 end

@@ -83,6 +83,10 @@ module Rwm
           list              List all packages in the workspace
           help              Show this help
 
+        Run options:
+          --affected        Only run on affected packages
+          --no-cache        Bypass task-level caching
+
         Options:
           -h, --help        Show this help
           -v, --version     Show version

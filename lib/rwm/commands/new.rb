@@ -61,10 +61,8 @@ module Rwm
 
           gemspec
 
-          group :development, :test do
-            gem "rspec", "~> 3.0"
-            gem "rake", "~> 13.0"
-          end
+          require "rwm/gemfile"
+          # rwm_lib "some_dependency"
         GEMFILE
       end
 
@@ -81,6 +79,8 @@ module Rwm
             spec.files = Dir.glob("lib/**/*")
             spec.require_paths = ["lib"]
             spec.required_ruby_version = ">= 3.1.0"
+
+            spec.add_development_dependency "rwm"
           end
         GEMSPEC
       end
@@ -89,9 +89,11 @@ module Rwm
         File.write(File.join(pkg_path, "Rakefile"), <<~RAKEFILE)
           # frozen_string_literal: true
 
-          require "rspec/core/rake_task"
+          require "rwm/rake"
 
-          RSpec::Core::RakeTask.new(:spec)
+          cacheable_task :spec do
+            sh "bundle exec rspec"
+          end
 
           task :bootstrap do
             puts "Add bootstrap steps for #{name} here."

@@ -33,3 +33,16 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [x] TaskCache (content-hash, redo-style)
 - [x] Wire `--cache` into `rwm run`
 - [x] Specs
+
+## Phase 6: Gemfile DSL
+- [x] rwm as dev dependency in scaffolded packages
+- [x] `lib/rwm/gemfile.rb` (rwm_lib / rwm_app helpers)
+- [x] Update `rwm new` scaffold
+- [x] Specs
+
+## Phase 7: Rakefile DSL + Task-level Caching
+- [x] `lib/rwm/rake.rb` (cacheable_task DSL)
+- [x] Update TaskCache for task-level opt-in + output checking
+- [x] Replace --cache with --no-cache in Commands::Run
+- [x] Update `rwm new` scaffold
+- [x] Specs

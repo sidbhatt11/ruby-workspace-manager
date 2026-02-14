@@ -84,19 +84,29 @@ rwm list
 | `rwm test [package]` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
 | `rwm affected` | Show packages affected by current changes (git diff + transitive dependents). |
 | `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
-| `rwm run <task> --cache` | Skip packages whose inputs haven't changed (redo-style content hashing). |
+| `rwm run <task> --no-cache` | Bypass automatic task caching. |
 | `rwm help` | Show available commands and usage. |
 
 ## How dependencies work
 
 RWM reads each package's `Gemfile` and extracts `path:` dependencies. These are mapped to known packages in the workspace to build a directed acyclic graph (DAG).
 
+### Gemfile DSL
+
+Scaffolded packages include `require "rwm/gemfile"` which adds `rwm_lib` and `rwm_app` helpers:
+
 ```ruby
 # libs/billing/Gemfile
-gem "auth", path: "../../libs/auth"
+require "rwm/gemfile"
+
+rwm_lib "auth"        # resolves to gem "auth", path: "<root>/libs/auth"
 ```
 
-This tells RWM that `billing` depends on `auth`. The graph is serialized to `.rwm/graph.json` and used for task ordering, affected detection, and convention checks.
+This replaces the verbose `gem "auth", path: "../../libs/auth"` pattern. The helpers resolve the workspace root via git and build the correct path automatically.
+
+You can still use the raw `gem ... path:` syntax if you prefer — both work.
+
+The graph is serialized to `.rwm/graph.json` and used for task ordering, affected detection, and convention checks.
 
 ## Bootstrap
 
@@ -109,6 +119,30 @@ This tells RWM that `billing` depends on `auth`. The graph is serialized to `.rw
 5. Build and validate the dependency graph
 
 `rwm init` calls `bootstrap` automatically. Both are idempotent.
+
+## Task caching
+
+Tasks declared with `cacheable_task` in a package's Rakefile are automatically cached. When inputs haven't changed, the task is skipped.
+
+```ruby
+# libs/auth/Rakefile
+require "rwm/rake"
+
+cacheable_task :spec do
+  sh "bundle exec rspec"
+end
+
+cacheable_task :build, output: "pkg/*.gem" do
+  sh "gem build *.gemspec"
+end
+```
+
+- **Automatic**: no flag needed — `rwm run spec` auto-detects cacheable tasks
+- **Output verification**: if `output:` is declared, the cache re-runs the task when output files are missing
+- **Transitive invalidation**: changing a dependency invalidates all dependents
+- **Bypass**: use `--no-cache` to force re-execution
+
+Non-cacheable tasks (plain `task`) always run.
 
 ## Design decisions
 

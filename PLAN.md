@@ -33,12 +33,14 @@ rwm/
 │       ├── cli.rb                # OptionParser-based dispatcher
 │       ├── workspace.rb          # discovers root, packages
 │       ├── package.rb            # single lib/app model
+│       ├── gemfile.rb            # Bundler DSL extension (rwm_lib/rwm_app)
 │       ├── gemfile_parser.rb     # Bundler DSL → path deps
 │       ├── dependency_graph.rb   # DAG via TSort (cycle detection, topo sort)
 │       ├── convention_checker.rb # structural rule enforcement
 │       ├── affected_detector.rb  # git diff → affected packages
 │       ├── task_runner.rb        # sequential + parallel rake execution
 │       ├── task_cache.rb         # redo-style content-hash caching
+│       ├── rake.rb               # Rake DSL extension (cacheable_task)
 │       ├── overcommit.rb         # overcommit setup + rwm-specific hooks
 │       └── commands/
 │           ├── init.rb           # rwm init
@@ -146,17 +148,32 @@ rwm/
 - Fails fast with a helpful message if any step fails
 - Idempotent — safe to re-run
 
+### GemfileDsl (`lib/rwm/gemfile.rb`)
+- Bundler DSL extension via `prepend` on `Bundler::Dsl`
+- `rwm_lib(name)`: resolves to `gem(name, path: "<root>/libs/<name>")`
+- `rwm_app(name)`: resolves to `gem(name, path: "<root>/apps/<name>")`
+- Workspace root discovered via `git rev-parse --show-toplevel`
+- Loaded in Gemfiles with `require "rwm/gemfile"`
+
+### RakeCache / cacheable_task (`lib/rwm/rake.rb`)
+- Defines top-level `cacheable_task(name, output: nil, &block)` for Rakefiles
+- Wraps `Rake::Task.define_task` — creates a normal rake task
+- Registers cache metadata in `Rwm::RakeCache.declarations`
+- Defines `rwm:cache_config` rake task that outputs declarations as JSON
+- Used by TaskCache to auto-detect which tasks are cacheable
+
 ### TaskCache (`lib/rwm/task_cache.rb`)
 - Redo-style content-hash caching for task results
 - For each (package, task) pair, computes a cache key from:
   - SHA256 of all source files in the package (sorted, deterministic)
   - Cache keys of all dependency packages (transitive — if a dep changes, dependents invalidate)
   - The task name itself
+- `cacheable?(package, task)`: discovers cacheable tasks by running `bundle exec rake rwm:cache_config` (cached per-run)
+- `outputs_exist?(package, output_pattern)`: checks declared output files/globs exist
 - On cache hit: skip the task, print "[cached]"
 - On cache miss: run the task, store the hash on success
 - Cache lives in `.rwm/cache/` — local, ephemeral, gitignored
-- Opt-in: only active when `rwm run --cache` is passed
-- `rwm run --cache --no-cache <pkg>` could allow selective bypass (future)
+- Auto-enabled for tasks declared with `cacheable_task` — bypass with `--no-cache`
 
 ### Overcommit (`lib/rwm/overcommit.rb`)
 - Sets up overcommit in the workspace: runs `overcommit --install`, merges rwm hooks into `.overcommit.yml`
@@ -219,6 +236,18 @@ rwm/
 21. TaskCache — content-hash based, redo-style
 22. Wire `--cache` into `rwm run`
 23. Specs
+
+### Phase 6: Gemfile DSL
+24. `lib/rwm/gemfile.rb` — Bundler DSL extension (`rwm_lib`, `rwm_app`)
+25. Update `rwm new` scaffold to add rwm as dev dep, include `require "rwm/gemfile"` in Gemfile
+26. Specs
+
+### Phase 7: Rakefile DSL + Task-level Caching
+27. `lib/rwm/rake.rb` — `cacheable_task` DSL + `rwm:cache_config` introspection
+28. Update TaskCache for task-level opt-in (`cacheable?`) + output verification (`outputs_exist?`)
+29. Replace `--cache` with `--no-cache` in Commands::Run (auto-detect cacheable tasks)
+30. Update `rwm new` scaffold to use `cacheable_task` in Rakefiles
+31. Specs
 
 ## Verification
 
