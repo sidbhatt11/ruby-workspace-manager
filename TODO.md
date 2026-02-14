@@ -70,3 +70,7 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [ ] Configurable concurrency (`--concurrency N`, default: processor count)
 - [ ] Update bootstrap to use DAG scheduler
 - [ ] Specs
+
+## Documentation
+
+- [ ] Write `GUIDE.md` — developer workflow guide covering: getting started (clone + bootstrap), day-to-day commands (run, affected, check), adding packages, inter-package dependencies with `rwm_lib`, task caching with `cacheable_task`, CI setup with `--affected`, graph visualization, and team best practices
