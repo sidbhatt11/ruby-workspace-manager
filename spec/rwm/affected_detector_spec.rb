@@ -108,6 +108,53 @@ RSpec.describe Rwm::AffectedDetector do
       end
     end
 
+    it "detects staged but uncommitted changes" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib },
+            billing: { type: :lib }
+          },
+          changed_files: {}
+        )
+
+        # Make a staged change without committing
+        File.write(File.join(dir, "libs/auth/lib/auth.rb"), "module Auth; end # staged")
+        system("git", "-C", dir, "add", "libs/auth/lib/auth.rb", out: File::NULL, err: File::NULL)
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        affected = detector.affected_packages
+        expect(affected.map(&:name)).to include("auth")
+        expect(affected.map(&:name)).not_to include("billing")
+      end
+    end
+
+    it "detects unstaged working directory changes" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib },
+            billing: { type: :lib }
+          },
+          changed_files: {}
+        )
+
+        # Make an unstaged change
+        File.write(File.join(dir, "libs/billing/lib/billing.rb"), "module Billing; end # dirty")
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        affected = detector.affected_packages
+        expect(affected.map(&:name)).to include("billing")
+        expect(affected.map(&:name)).not_to include("auth")
+      end
+    end
+
     it "returns empty when nothing changed" do
       Dir.mktmpdir do |dir|
         setup_git_workspace(dir,

@@ -56,19 +56,21 @@ module Rwm
     end
 
     def detect_changed_files
-      output = `git -C #{workspace.root} diff --name-only #{base_branch}...HEAD 2>/dev/null`.chomp
+      files = Set.new
 
-      # If the diff fails (e.g. no commits yet), try diffing against HEAD
-      if output.empty?
-        output = `git -C #{workspace.root} diff --name-only HEAD 2>/dev/null`.chomp
-      end
+      # 1. Committed changes: base branch vs HEAD
+      committed = `git -C #{workspace.root} diff --name-only #{base_branch}...HEAD 2>/dev/null`.chomp
+      committed.lines.each { |l| files << l.chomp }
 
-      # If still empty, try unstaged changes
-      if output.empty?
-        output = `git -C #{workspace.root} diff --name-only 2>/dev/null`.chomp
-      end
+      # 2. Staged changes (not yet committed)
+      staged = `git -C #{workspace.root} diff --name-only --cached 2>/dev/null`.chomp
+      staged.lines.each { |l| files << l.chomp }
 
-      output.lines.map(&:chomp).reject(&:empty?)
+      # 3. Unstaged working directory changes
+      unstaged = `git -C #{workspace.root} diff --name-only 2>/dev/null`.chomp
+      unstaged.lines.each { |l| files << l.chomp }
+
+      files.reject(&:empty?).to_a
     end
 
     def map_files_to_packages(files)
