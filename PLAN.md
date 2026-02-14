@@ -38,6 +38,7 @@ rwm/
 │       ├── convention_checker.rb # structural rule enforcement
 │       ├── affected_detector.rb  # git diff → affected packages
 │       ├── task_runner.rb        # sequential + parallel rake execution
+│       ├── task_cache.rb         # redo-style content-hash caching
 │       ├── overcommit.rb         # overcommit setup + rwm-specific hooks
 │       └── commands/
 │           ├── init.rb           # rwm init
@@ -83,6 +84,7 @@ rwm/
 7. **Zero runtime deps**: Only Ruby stdlib + Bundler (ships with Ruby since 2.6). Overcommit is the sole exception — it's a development dependency that rwm sets up for users.
 8. **No config file**: The git root is the workspace root. `.rwm/` is generated state (gitignored), created on demand to store `graph.json`. Sensible defaults are baked in (base branch = auto-detected from git, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
 11. **Auto-detect base branch**: Instead of hardcoding `main`, use `git symbolic-ref refs/remotes/origin/HEAD` to detect the remote's default branch. Falls back to `main`, then `master`. No config needed — works with any branching convention.
+12. **Task caching (opt-in, redo-style)**: Inspired by DJB's redo. For each (package, task) pair, compute a content hash of the package's source files + the hashes of its dependencies. If the hash matches a previous successful run, skip the task entirely. Cache is local (`.rwm/cache/`), ephemeral, gitignored. Opt-in via `--cache` flag — by default tasks always run. Developers who want speed enable it; developers who want correctness don't have to think about it.
 9. **Package scaffolding**: `rwm new app/lib <name>` generates a standard Ruby package structure so every package is consistent. Includes Gemfile, gemspec, Rakefile (with an empty `bootstrap` task as a hint), `lib/<name>.rb`, and a basic spec setup.
 10. **Bootstrap as onboarding**: `rwm bootstrap` is the single command a developer runs after cloning. It handles everything: `bundle install` in every package (topological order so deps are available first), runs `rake bootstrap` where available, builds the dependency graph, validates conventions, and sets up overcommit. Idempotent — safe to run again.
 
@@ -144,6 +146,18 @@ rwm/
 - Fails fast with a helpful message if any step fails
 - Idempotent — safe to re-run
 
+### TaskCache (`lib/rwm/task_cache.rb`)
+- Redo-style content-hash caching for task results
+- For each (package, task) pair, computes a cache key from:
+  - SHA256 of all source files in the package (sorted, deterministic)
+  - Cache keys of all dependency packages (transitive — if a dep changes, dependents invalidate)
+  - The task name itself
+- On cache hit: skip the task, print "[cached]"
+- On cache miss: run the task, store the hash on success
+- Cache lives in `.rwm/cache/` — local, ephemeral, gitignored
+- Opt-in: only active when `rwm run --cache` is passed
+- `rwm run --cache --no-cache <pkg>` could allow selective bypass (future)
+
 ### Overcommit (`lib/rwm/overcommit.rb`)
 - Sets up overcommit in the workspace: runs `overcommit --install`, merges rwm hooks into `.overcommit.yml`
 - Merges, not overwrites — preserves any existing user hooks in `.overcommit.yml`
@@ -201,15 +215,20 @@ rwm/
 19. Wire into `rwm init`
 20. Specs
 
+### Phase 5: Task Caching (opt-in)
+21. TaskCache — content-hash based, redo-style
+22. Wire `--cache` into `rwm run`
+23. Specs
+
 ## Verification
 
 1. `bundle exec rspec` — all unit specs pass
 2. Create a test monorepo with 2 libs + 1 app, verify full workflow
 3. Verify overcommit hooks fire correctly on commit/push
+4. Verify task caching skips unchanged packages and invalidates on changes
 
 ## Future Considerations (Not in v1)
 
-- Computation caching (content hash-based, like Nx)
 - Remote caching (shared across CI + devs)
 - Custom composite tasks (config inside `.rwm/` if needed)
 - Watch mode

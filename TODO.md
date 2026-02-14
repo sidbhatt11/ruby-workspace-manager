@@ -27,3 +27,8 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 - [ ] Overcommit setup + hook config
 - [ ] Wire into rwm init
 - [ ] Specs
+
+## Phase 5: Task Caching (opt-in)
+- [ ] TaskCache (content-hash, redo-style)
+- [ ] Wire `--cache` into `rwm run`
+- [ ] Specs
