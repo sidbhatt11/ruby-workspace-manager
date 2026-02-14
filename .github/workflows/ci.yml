@@ -7,7 +7,22 @@ on:
     branches: [main]
 
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Run bundler-audit
+        run: bundle exec bundler-audit check --update
+
   test:
+    needs: security
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
