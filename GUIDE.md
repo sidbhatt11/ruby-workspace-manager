@@ -149,6 +149,29 @@ This runs `rake test` in every package that has a `test` task, in dependency ord
 
 `rwm init` calls `bootstrap` as its last step. Both commands are idempotent — safe to run repeatedly.
 
+### The bootstrap rake task
+
+Every scaffolded package includes an empty `bootstrap` task in its Rakefile. This is where package-specific setup logic belongs — anything beyond `bundle install` that a package needs to be ready for development:
+
+```ruby
+# libs/auth/Rakefile
+task :bootstrap do
+  sh "bin/rails db:setup" if File.exist?("bin/rails")
+  sh "cp config/credentials.example.yml config/credentials.yml" unless File.exist?("config/credentials.yml")
+end
+```
+
+Common examples:
+- Database setup (`db:create`, `db:migrate`, `db:seed`)
+- Copying example config files (`.env.example` to `.env`, example credentials)
+- Generating local SSL certificates
+- Compiling native extensions or protobuf definitions
+- Seeding local caches or fixture data
+
+The root Rakefile has a bootstrap task too — use it for workspace-wide setup like installing shared tooling, generating binstubs, or configuring git settings.
+
+The key property: **`rwm bootstrap` runs every package's bootstrap task automatically.** Developers don't need to know which packages have special setup steps. They run one command and everything is handled. This is why writing your setup logic as a bootstrap task matters — it turns manual onboarding instructions into executable code that stays in sync with the codebase.
+
 ### After cloning
 
 When a new developer joins the project:
