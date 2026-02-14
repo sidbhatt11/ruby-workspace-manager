@@ -60,8 +60,8 @@ rwm/
 
 | Command | Behavior |
 |---------|----------|
-| `rwm init` | Create `libs/`, `apps/`, `.rwm/`, then run `bootstrap` automatically. Idempotent — safe to re-run to fix a broken state |
-| `rwm bootstrap` | Full developer onboarding: install all gems, run bootstrap tasks, build graph, set up overcommit |
+| `rwm init` | Create dirs, Gemfile (if missing), Rakefile (if missing), then call `bootstrap`. Idempotent — safe to re-run to fix a broken state |
+| `rwm bootstrap` | `bundle install` + `rake bootstrap` in root, then same in all packages, then build graph. The "clone and go" command |
 | `rwm new app <name>` | Scaffold a new app in `apps/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
 | `rwm new lib <name>` | Scaffold a new lib in `libs/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
 | `rwm info <name>` | Show details about a package: type, path, deps, dependents, rake tasks |
@@ -82,7 +82,7 @@ rwm/
 6. **No CLI framework**: Plain `OptionParser` from stdlib. No Thor, no GLI.
 7. **Zero runtime deps**: Only Ruby stdlib + Bundler (ships with Ruby since 2.6). Overcommit is the sole exception — it's a development dependency that rwm sets up for users.
 8. **No config file**: The `.rwm/` directory is the workspace root marker and contains all rwm state. No `.rwm.yml`. Sensible defaults are baked in (base branch = `main`, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
-9. **Package scaffolding**: `rwm new app/lib <name>` generates a standard Ruby package structure so every package is consistent. Includes Gemfile, gemspec, Rakefile, `lib/<name>.rb`, and a basic spec setup.
+9. **Package scaffolding**: `rwm new app/lib <name>` generates a standard Ruby package structure so every package is consistent. Includes Gemfile, gemspec, Rakefile (with an empty `bootstrap` task as a hint), `lib/<name>.rb`, and a basic spec setup.
 10. **Bootstrap as onboarding**: `rwm bootstrap` is the single command a developer runs after cloning. It handles everything: `bundle install` in every package (topological order so deps are available first), runs `rake bootstrap` where available, builds the dependency graph, validates conventions, and sets up overcommit. Idempotent — safe to run again.
 
 ## Core Components
@@ -122,28 +122,32 @@ rwm/
 - Skips downstream levels on failure
 - Streams output with `[package_name]` prefixes
 
+### Init (`lib/rwm/commands/init.rb`)
+- Creates the workspace structure (`libs/`, `apps/`, `.rwm/`) if not already present
+- Creates a root `Gemfile` if missing (includes `rwm` and `overcommit` gems)
+- Creates a root `Rakefile` if missing (includes an empty `bootstrap` task that prints a helpful message)
+- Calls `bootstrap` as the last step
+- Idempotent — if `.rwm/` was deleted or things are broken, just run `rwm init` again to recover
+
 ### Bootstrap (`lib/rwm/commands/bootstrap.rb`)
-- The "clone and go" command — everything a developer needs after `git clone`
-- Steps executed in order:
-  1. `bundle install` in each package (parallel by execution level — libs before apps that depend on them)
-  2. `rake bootstrap` in each package that defines the task (parallel by execution level)
-  3. Build and validate the dependency graph (`rwm graph` + `rwm check`)
-  4. Set up overcommit (install gem, install hooks, write config)
-- Streams progress with clear status output per package
+- Follows the same pattern everywhere: `bundle install` → `rake bootstrap` (if available)
+- Steps:
+  1. Bootstrap the root: `bundle install`, then `rake bootstrap` if defined (init ensures it is)
+  2. Set up overcommit (install hooks, merge rwm hooks into `.overcommit.yml`)
+  3. Bootstrap all packages: same pattern in each package (sequential initially, parallel by execution level once TaskRunner lands)
+  4. Build and validate the dependency graph (`rwm graph` + `rwm check`)
+- Root Rakefile has a `bootstrap` task by default (prints a helpful message, developers customize it for binstubs, shared tooling, etc.)
+- Streams progress with clear status output
 - Fails fast with a helpful message if any step fails
 - Idempotent — safe to re-run
 
-### Init (`lib/rwm/commands/init.rb`)
-- Creates the workspace structure (`libs/`, `apps/`, `.rwm/`) if not already present
-- Then calls `bootstrap` to do the full setup
-- Idempotent — if `.rwm/` was deleted or things are broken, just run `rwm init` again to recover
-
 ### Overcommit (`lib/rwm/overcommit.rb`)
-- Sets up overcommit in the workspace: installs gem, runs `overcommit --install`, writes `.overcommit.yml`
+- Sets up overcommit in the workspace: runs `overcommit --install`, merges rwm hooks into `.overcommit.yml`
+- Merges, not overwrites — preserves any existing user hooks in `.overcommit.yml`
 - Configures rwm-specific hooks:
   - `pre_push`: runs `rwm check`, blocks push on failure
   - `post_commit`: runs `rwm graph` if any Gemfile changed in the commit
-- Called by `bootstrap`
+- Called by `init`
 
 ## graph.json Format
 
