@@ -8,22 +8,6 @@ An Nx-like monorepo tool for Ruby. Convention-over-configuration, zero runtime d
 
 RWM manages Ruby monorepos with multiple apps and libraries. It builds a dependency graph from your Gemfiles, enforces structural conventions, runs tasks in parallel respecting dependency order, detects affected packages from git changes, and caches results so unchanged work is never repeated.
 
-## Quick start
-
-```sh
-gem install rwm
-
-mkdir my-project && cd my-project
-git init
-rwm init
-
-rwm new lib auth
-rwm new lib billing
-rwm new app api
-
-rwm test
-```
-
 ## Commands
 
 | Command | Description |
