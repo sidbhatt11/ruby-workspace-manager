@@ -90,6 +90,7 @@ module Rwm
             spec.require_paths = ["lib"]
             spec.required_ruby_version = ">= 3.1.0"
 
+            spec.add_development_dependency "rake"
             spec.add_development_dependency "rwm"
           end
         GEMSPEC
