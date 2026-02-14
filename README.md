@@ -84,6 +84,7 @@ rwm list
 | `rwm test` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
 | `rwm affected` | Show packages affected by current changes (git diff + transitive dependents). |
 | `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
+| `rwm help` | Show available commands and usage. |
 
 ### Coming soon
 

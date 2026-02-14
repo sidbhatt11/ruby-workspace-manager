@@ -81,6 +81,7 @@ module Rwm
           test              Shortcut for `rwm run test`
           affected          Show packages affected by current changes
           list              List all packages in the workspace
+          help              Show this help
 
         Options:
           -h, --help        Show this help
