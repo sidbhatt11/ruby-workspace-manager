@@ -16,14 +16,23 @@ module Rwm
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task> [--affected]"
+          $stderr.puts "Usage: rwm run <task> [<package>] [--affected]"
           return 1
         end
+
+        package_name = @argv.shift
 
         workspace = Workspace.find
         graph = DependencyGraph.build(workspace)
 
-        packages = if @affected_only
+        packages = if package_name
+                     pkg = workspace.find_package(package_name)
+                     unless pkg
+                       $stderr.puts "Unknown package: #{package_name}"
+                       return 1
+                     end
+                     [pkg]
+                   elsif @affected_only
                      detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only)
                      affected = detector.affected_packages
                      if affected.empty?

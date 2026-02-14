@@ -77,7 +77,7 @@ module Rwm
           info <name>       Show details about a package
           graph             Build and save the dependency graph
           check             Validate dependency graph and conventions
-          run <task>        Run a rake task across all packages (parallel)
+          run <task> [pkg]  Run a rake task across all (or one) package(s)
           test              Shortcut for `rwm run test`
           affected          Show packages affected by current changes
           list              List all packages in the workspace
