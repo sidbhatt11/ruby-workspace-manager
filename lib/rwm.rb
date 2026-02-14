@@ -9,5 +9,6 @@ module Rwm
   autoload :GemfileParser,     "rwm/gemfile_parser"
   autoload :DependencyGraph,   "rwm/dependency_graph"
   autoload :ConventionChecker, "rwm/convention_checker"
+  autoload :TaskRunner,        "rwm/task_runner"
   autoload :CLI,               "rwm/cli"
 end

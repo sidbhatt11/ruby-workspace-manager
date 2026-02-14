@@ -81,13 +81,14 @@ rwm list
 | `rwm check` | Validate the dependency graph against conventions. Exit 0 on success, 1 on failure. |
 | `rwm list` | Print a table of all packages with their types, paths, and dependencies. |
 
+| `rwm run <task>` | Run a Rake task across all packages in parallel (by execution level). |
+| `rwm test` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
+
 ### Coming soon
 
 | Command | Description |
 |---------|-------------|
-| `rwm run <task>` | Run a Rake task across all packages in parallel (by execution level). |
-| `rwm run <task> --cache` | Same, but skip packages whose inputs haven't changed (redo-style). |
-| `rwm test` | Shortcut for `rwm run test`. |
+| `rwm run <task> --cache` | Same as run, but skip packages whose inputs haven't changed (redo-style). |
 | `rwm affected` | Show packages affected by current changes (git diff). |
 | `rwm run <task> --affected` | Run a task only on affected packages and their dependents. |
 

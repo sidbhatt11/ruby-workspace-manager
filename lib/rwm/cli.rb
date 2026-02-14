@@ -11,8 +11,12 @@ module Rwm
       "info"      => "Commands::Info",
       "graph"     => "Commands::Graph",
       "check"     => "Commands::Check",
-      "list"      => "Commands::List"
+      "list"      => "Commands::List",
+      "run"       => "Commands::Run"
     }.freeze
+
+    # Shortcuts that expand to `run <task>`
+    TASK_SHORTCUTS = %w[test spec build].freeze
 
     def self.run(argv)
       new(argv).run
@@ -33,6 +37,12 @@ module Rwm
       if %w[-v --version version].include?(command_name)
         puts "rwm #{Rwm::VERSION}"
         return 0
+      end
+
+      # Expand task shortcuts: `rwm test` → `rwm run test`
+      if TASK_SHORTCUTS.include?(command_name)
+        @argv.unshift(command_name)
+        command_name = "run"
       end
 
       const_name = COMMANDS[command_name]
@@ -66,6 +76,8 @@ module Rwm
           info <name>       Show details about a package
           graph             Build and save the dependency graph
           check             Validate dependency graph and conventions
+          run <task>        Run a rake task across all packages (parallel)
+          test              Shortcut for `rwm run test`
           list              List all packages in the workspace
 
         Options:

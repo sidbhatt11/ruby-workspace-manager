@@ -49,14 +49,36 @@ module Rwm
           return
         end
 
-        puts "==> Bootstrapping #{packages.size} package(s)..."
+        graph = DependencyGraph.build(workspace)
 
-        # Sequential for now — will be upgraded to parallel by execution level in Phase 2
-        packages.each do |pkg|
+        # Step 1: bundle install in all packages (parallel by execution level)
+        puts "==> Installing gems in #{packages.size} package(s)..."
+        install_runner = TaskRunner.new(graph, packages: packages)
+        install_runner.run_command do |pkg|
+          ["bundle", "install"]
+        end
+
+        unless install_runner.success?
+          failed = install_runner.failed_results
+          $stderr.puts "Error: bundle install failed in: #{failed.map(&:package_name).join(", ")}"
+          exit 1
+        end
+
+        # Step 2: rake bootstrap in all packages (parallel by execution level)
+        bootstrappable = packages.select(&:has_rakefile?)
+        unless bootstrappable.empty?
           puts
-          puts "--- #{pkg.name} (#{pkg.type}) ---"
-          run_bundle_install(pkg.path)
-          run_rake_bootstrap(pkg.path)
+          puts "==> Running bootstrap tasks in #{bootstrappable.size} package(s)..."
+          bootstrap_runner = TaskRunner.new(graph, packages: bootstrappable)
+          bootstrap_runner.run_command do |pkg|
+            ["bundle", "exec", "rake", "bootstrap"]
+          end
+
+          unless bootstrap_runner.success?
+            failed = bootstrap_runner.failed_results
+            $stderr.puts "Error: rake bootstrap failed in: #{failed.map(&:package_name).join(", ")}"
+            exit 1
+          end
         end
       end
 
