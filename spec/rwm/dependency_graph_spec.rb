@@ -124,15 +124,19 @@ RSpec.describe Rwm::DependencyGraph do
   end
 
   describe ".load" do
-    let(:workspace) { instance_double(Rwm::Workspace, packages: [auth, billing, api]) }
-
     it "loads packages and edges from a cached graph.json" do
       Dir.mktmpdir do |dir|
-        graph_path = File.join(dir, ".rwm", "graph.json")
-        allow(workspace).to receive(:graph_path).and_return(graph_path)
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] },
+          api: { type: :app, deps: [:auth, :billing] }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph_path = workspace.graph_path
 
         # Build and save a graph first
-        original = build_graph
+        original = described_class.build(workspace)
         original.save(graph_path, dir)
 
         # Load from cache
@@ -147,13 +151,66 @@ RSpec.describe Rwm::DependencyGraph do
     end
 
     it "falls back to build when graph.json does not exist" do
-      allow(workspace).to receive(:graph_path).and_return("/nonexistent/.rwm/graph.json")
-      expect(described_class).to receive(:build).with(workspace).and_call_original
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib }
+        })
 
-      allow(Rwm::GemfileParser).to receive(:parse).and_return([])
-      graph = described_class.load(workspace)
+        workspace = Rwm::Workspace.find(dir)
 
-      expect(graph.packages.keys).to contain_exactly("auth", "billing", "api")
+        # No graph.json exists, should fall back to build
+        graph = described_class.load(workspace)
+
+        expect(graph.packages.keys).to contain_exactly("auth", "billing")
+        # Should have saved the graph as a side effect
+        expect(File.exist?(workspace.graph_path)).to be true
+      end
+    end
+
+    it "rebuilds when a Gemfile is newer than graph.json" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+
+        # Build and save initial graph
+        original = described_class.build(workspace)
+        original.save(workspace.graph_path, dir)
+
+        # Touch a Gemfile to make it newer than graph.json
+        sleep 0.05
+        FileUtils.touch(workspace.packages.first.gemfile_path)
+
+        expect(described_class).to receive(:build).with(workspace).and_call_original
+
+        loaded = described_class.load(workspace)
+        expect(loaded.packages.keys).to contain_exactly("auth", "billing")
+      end
+    end
+
+    it "uses cache when graph.json is newer than all Gemfiles" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+
+        # Build and save graph
+        original = described_class.build(workspace)
+        original.save(workspace.graph_path, dir)
+
+        # graph.json is already newer than Gemfiles — should not rebuild
+        expect(described_class).not_to receive(:build)
+
+        loaded = described_class.load(workspace)
+        expect(loaded.packages.keys).to contain_exactly("auth", "billing")
+      end
     end
   end
 

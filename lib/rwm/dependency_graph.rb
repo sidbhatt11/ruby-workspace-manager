@@ -87,11 +87,16 @@ module Rwm
       levels
     end
 
-    # Load graph from cached .rwm/graph.json, falling back to build
+    # Load graph from cached .rwm/graph.json, falling back to build.
+    # Auto-rebuilds when any package Gemfile is newer than the cache.
     def self.load(workspace)
       path = workspace.graph_path
       unless File.exist?(path)
-        return build(workspace)
+        return build_and_save(workspace)
+      end
+
+      if stale?(path, workspace.packages)
+        return build_and_save(workspace)
       end
 
       data = JSON.parse(File.read(path))
@@ -105,6 +110,19 @@ module Rwm
 
       graph
     end
+
+    def self.build_and_save(workspace)
+      graph = build(workspace)
+      graph.save(workspace.graph_path, workspace.root)
+      graph
+    end
+
+    def self.stale?(graph_path, packages)
+      graph_mtime = File.mtime(graph_path)
+      packages.any? { |pkg| File.mtime(pkg.gemfile_path) > graph_mtime }
+    end
+
+    private_class_method :stale?, :build_and_save
 
     # Build graph from a workspace by parsing all Gemfiles
     def self.build(workspace)

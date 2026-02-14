@@ -8,9 +8,10 @@ module Rwm
 
     attr_reader :results
 
-    def initialize(graph, packages: nil)
+    def initialize(graph, packages: nil, buffered: false)
       @graph = graph
       @packages = packages || graph.packages.values
+      @buffered = buffered
       @results = []
       @mutex = Mutex.new
     end
@@ -92,7 +93,11 @@ module Rwm
       stdout, stderr, status = Open3.capture3(*cmd, chdir: pkg.path)
       output = format_output(prefix, stdout, stderr)
 
-      print_output(output)
+      if @buffered
+        print_buffered_output(pkg.name, output, status.success?)
+      else
+        print_output(output)
+      end
 
       Result.new(
         package_name: pkg.name,
@@ -112,6 +117,15 @@ module Rwm
     def print_output(output)
       @mutex.synchronize do
         $stdout.print(output) unless output.empty?
+      end
+    end
+
+    def print_buffered_output(name, output, success)
+      @mutex.synchronize do
+        stream = success ? $stdout : $stderr
+        stream.puts "==> [#{name}]"
+        stream.print(output) unless output.empty?
+        stream.puts
       end
     end
 

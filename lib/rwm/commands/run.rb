@@ -10,6 +10,7 @@ module Rwm
         @affected_only = false
         @committed_only = false
         @no_cache = false
+        @buffered = false
         parse_options
       end
 
@@ -17,7 +18,7 @@ module Rwm
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--no-cache]"
+          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--no-cache] [--buffered]"
           return 1
         end
 
@@ -75,7 +76,7 @@ module Rwm
         puts "Running `rake #{task}` across #{runnable.size} package(s)..."
         puts
 
-        runner = TaskRunner.new(graph, packages: runnable)
+        runner = TaskRunner.new(graph, packages: runnable, buffered: @buffered)
         runner.run_task(task)
 
         # Store cache for successful cacheable packages
@@ -112,6 +113,9 @@ module Rwm
           end
           opts.on("--no-cache", "Bypass task caching even for cacheable tasks") do
             @no_cache = true
+          end
+          opts.on("--buffered", "Buffer output per-package and print on completion") do
+            @buffered = true
           end
         end
 

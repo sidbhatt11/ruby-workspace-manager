@@ -71,8 +71,7 @@ module Rwm
 
         unless install_runner.success?
           failed = install_runner.failed_results
-          $stderr.puts "Error: bundle install failed in: #{failed.map(&:package_name).join(", ")}"
-          exit 1
+          raise BootstrapError, "bundle install failed in: #{failed.map(&:package_name).join(", ")}"
         end
 
         # Step 2: rake bootstrap in all packages (parallel by execution level)
@@ -87,8 +86,7 @@ module Rwm
 
           unless bootstrap_runner.success?
             failed = bootstrap_runner.failed_results
-            $stderr.puts "Error: rake bootstrap failed in: #{failed.map(&:package_name).join(", ")}"
-            exit 1
+            raise BootstrapError, "rake bootstrap failed in: #{failed.map(&:package_name).join(", ")}"
           end
         end
       end
@@ -126,8 +124,7 @@ module Rwm
         puts "  bundle install..."
         success = system("bundle", "install", chdir: dir)
         unless success
-          $stderr.puts "Error: bundle install failed in #{dir}"
-          exit 1
+          raise BootstrapError, "bundle install failed in #{dir}"
         end
       end
 
@@ -142,8 +139,7 @@ module Rwm
         puts "  rake bootstrap..."
         success = system("bundle", "exec", "rake", "bootstrap", chdir: dir)
         unless success
-          $stderr.puts "Error: rake bootstrap failed in #{dir}"
-          exit 1
+          raise BootstrapError, "rake bootstrap failed in #{dir}"
         end
       end
     end

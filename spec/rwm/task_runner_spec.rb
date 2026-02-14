@@ -131,6 +131,56 @@ RSpec.describe Rwm::TaskRunner do
     end
   end
 
+  describe "buffered output" do
+    it "prints output with header when buffered: true" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        output = StringIO.new
+        $stdout = output
+
+        runner = described_class.new(graph, packages: workspace.packages, buffered: true)
+        runner.run_command { |_pkg| ["ruby", "-e", "puts 'hello'"] }
+
+        $stdout = STDOUT
+
+        expect(output.string).to include("==> [auth]")
+        expect(output.string).to include("hello")
+        expect(runner.success?).to be true
+      end
+    end
+
+    it "prints failures to stderr when buffered" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        stderr_output = StringIO.new
+        $stderr = stderr_output
+        # Suppress stdout
+        $stdout = StringIO.new
+
+        runner = described_class.new(graph, packages: workspace.packages, buffered: true)
+        runner.run_command { |_pkg| ["ruby", "-e", "$stderr.puts 'error'; exit 1"] }
+
+        $stderr = STDERR
+        $stdout = STDOUT
+
+        expect(stderr_output.string).to include("==> [auth]")
+        expect(runner.success?).to be false
+      end
+    end
+  end
+
   describe "#run_task" do
     it "runs a rake task in each package" do
       Dir.mktmpdir do |dir|

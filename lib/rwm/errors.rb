@@ -38,4 +38,6 @@ module Rwm
       super("Package already exists: #{name}")
     end
   end
+
+  class BootstrapError < Error; end
 end
