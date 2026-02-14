@@ -40,6 +40,8 @@ module Rwm
         return 0
       end
 
+      check_required_tools
+
       # Expand task shortcuts: `rwm test` → `rwm run test`
       if TASK_SHORTCUTS.include?(command_name)
         @argv.unshift(command_name)
@@ -63,6 +65,15 @@ module Rwm
     end
 
     private
+
+    def check_required_tools
+      %w[git bundle].each do |tool|
+        unless system("which", tool, out: File::NULL, err: File::NULL)
+          $stderr.puts "Error: #{tool} is not installed or not in PATH."
+          exit 1
+        end
+      end
+    end
 
     def print_help
       puts <<~HELP
