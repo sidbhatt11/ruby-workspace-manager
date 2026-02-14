@@ -8,6 +8,7 @@ module Rwm
       def initialize(argv)
         @argv = argv
         @affected_only = false
+        @committed_only = false
         parse_options
       end
 
@@ -23,7 +24,7 @@ module Rwm
         graph = DependencyGraph.build(workspace)
 
         packages = if @affected_only
-                     detector = AffectedDetector.new(workspace, graph)
+                     detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only)
                      affected = detector.affected_packages
                      if affected.empty?
                        puts "No affected packages. Nothing to run."
@@ -71,6 +72,9 @@ module Rwm
         parser = OptionParser.new do |opts|
           opts.on("--affected", "Only run on affected packages") do
             @affected_only = true
+          end
+          opts.on("--committed", "Only consider committed changes (with --affected)") do
+            @committed_only = true
           end
         end
 

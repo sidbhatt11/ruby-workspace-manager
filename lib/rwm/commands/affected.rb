@@ -1,16 +1,20 @@
 # frozen_string_literal: true
 
+require "optparse"
+
 module Rwm
   module Commands
     class Affected
       def initialize(argv)
         @argv = argv
+        @committed_only = false
+        parse_options
       end
 
       def run
         workspace = Workspace.find
         graph = DependencyGraph.build(workspace)
-        detector = AffectedDetector.new(workspace, graph)
+        detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only)
 
         affected = detector.affected_packages
         directly_changed = detector.directly_changed_packages
@@ -30,6 +34,18 @@ module Rwm
         end
 
         0
+      end
+
+      private
+
+      def parse_options
+        parser = OptionParser.new do |opts|
+          opts.on("--committed", "Only consider committed changes (ignore staged/unstaged)") do
+            @committed_only = true
+          end
+        end
+
+        parser.order!(@argv)
       end
     end
   end

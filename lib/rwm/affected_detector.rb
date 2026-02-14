@@ -4,9 +4,10 @@ module Rwm
   class AffectedDetector
     attr_reader :workspace, :graph, :base_branch
 
-    def initialize(workspace, graph)
+    def initialize(workspace, graph, committed_only: false)
       @workspace = workspace
       @graph = graph
+      @committed_only = committed_only
       @base_branch = detect_base_branch
     end
 
@@ -62,13 +63,15 @@ module Rwm
       committed = `git -C #{workspace.root} diff --name-only #{base_branch}...HEAD 2>/dev/null`.chomp
       committed.lines.each { |l| files << l.chomp }
 
-      # 2. Staged changes (not yet committed)
-      staged = `git -C #{workspace.root} diff --name-only --cached 2>/dev/null`.chomp
-      staged.lines.each { |l| files << l.chomp }
+      unless @committed_only
+        # 2. Staged changes (not yet committed)
+        staged = `git -C #{workspace.root} diff --name-only --cached 2>/dev/null`.chomp
+        staged.lines.each { |l| files << l.chomp }
 
-      # 3. Unstaged working directory changes
-      unstaged = `git -C #{workspace.root} diff --name-only 2>/dev/null`.chomp
-      unstaged.lines.each { |l| files << l.chomp }
+        # 3. Unstaged working directory changes
+        unstaged = `git -C #{workspace.root} diff --name-only 2>/dev/null`.chomp
+        unstaged.lines.each { |l| files << l.chomp }
+      end
 
       files.reject(&:empty?).to_a
     end

@@ -172,6 +172,32 @@ RSpec.describe Rwm::AffectedDetector do
     end
   end
 
+  describe "committed_only mode" do
+    it "ignores staged and unstaged changes" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib },
+            billing: { type: :lib }
+          },
+          changed_files: {}
+        )
+
+        # Make staged and unstaged changes
+        File.write(File.join(dir, "libs/auth/lib/auth.rb"), "module Auth; end # staged")
+        system("git", "-C", dir, "add", "libs/auth/lib/auth.rb", out: File::NULL, err: File::NULL)
+        File.write(File.join(dir, "libs/billing/lib/billing.rb"), "module Billing; end # dirty")
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph, committed_only: true)
+
+        affected = detector.affected_packages
+        expect(affected).to be_empty
+      end
+    end
+  end
+
   describe "#directly_changed_packages" do
     it "returns only directly changed packages without dependents" do
       Dir.mktmpdir do |dir|
