@@ -350,15 +350,42 @@ The exit code is 0 if all packages pass, 1 if any fail. Failed packages are list
 
 In a monorepo with many packages, most runs touch only a few packages. Without caching, `rwm run spec` re-runs every package's specs even if nothing changed. Task caching skips packages whose inputs are unchanged, potentially saving minutes on every run.
 
+### The idea: content-hash caching from redo
+
+RWM's cache is inspired by [DJB's redo](https://cr.yp.to/redo.html), a build system by Daniel J. Bernstein. The core insight of redo is: **use content hashes, not timestamps, to decide what needs rebuilding.** Timestamps are fragile — `git checkout` changes them, rebasing rewrites them, `touch` invalidates them. Content hashes are deterministic: if the bytes haven't changed, the hash hasn't changed, and the result is still valid. This is the same principle that [Bazel](https://bazel.build/) and [Nx](https://nx.dev) use.
+
 ### How it works
 
-RWM uses a content-hash caching model inspired by [DJB's redo](https://cr.yp.to/redo.html). For each (package, task) pair:
+For each (package, task) pair, RWM:
 
-1. **Compute a content hash** — SHA256 of all source files in the package (sorted by path for determinism), plus the content hashes of all dependency packages. This means changing a library automatically invalidates the cache of every app and library that depends on it, transitively.
-2. **Compare with stored hash** — If the hash matches the last successful run, and declared output files exist, the task is skipped.
-3. **Store on success** — After a successful run, the hash is saved to `.rwm/cache/<package>-<task>`.
+1. **Computes a content hash** — SHA256 of all source files in the package (sorted by path for determinism), plus the content hashes of all dependency packages.
+2. **Compares with stored hash** — If the hash matches the last successful run, and declared output files exist, the task is skipped.
+3. **Stores on success** — After a successful run, the hash is saved to `.rwm/cache/<package>-<task>`.
 
 Files in `tmp/`, `vendor/`, and `.bundle/` are excluded from the hash to avoid counting transient or third-party files as inputs.
+
+### Transitive invalidation
+
+This is where the redo parallel is strongest. A package's content hash includes the content hashes of its dependencies, recursively:
+
+```
+hash(auth)    = SHA256(auth's files)
+hash(billing) = SHA256(billing's files + hash(auth))
+hash(api)     = SHA256(api's files + hash(billing) + hash(auth))
+```
+
+If you change a single file in `auth`, the hashes of `billing` and `api` change automatically — even though no file inside those packages was touched. Their caches are invalidated because their dependency changed. This cascades through the entire graph with no explicit invalidation logic.
+
+This is exactly how redo's dependency chains work: a target that depends on another target inherits its staleness transitively. You never get a stale cache hit from a changed dependency.
+
+### Where RWM is coarser than redo
+
+True redo tracks **exactly which files a build step read** during execution (via filesystem-level interception). RWM hashes **every file in the package directory**. This means:
+
+- If you edit a README inside `libs/auth/`, the `spec` cache for `auth` is invalidated — even though RSpec never reads that file.
+- If you add a comment to a non-required file, the cache busts.
+
+This is a deliberate tradeoff. File-level read tracking would require intercepting filesystem calls (via `strace`, `dtrace`, or a FUSE layer), which contradicts the zero-dependency, keep-it-simple philosophy. Package-level hashing is coarser but **always correct** — it may give false invalidations (unnecessary re-runs), but never false cache hits (skipping when it shouldn't). For most Ruby packages, where source trees are small, the occasional extra re-run is cheap.
 
 ### Declaring cacheable tasks
 
@@ -397,11 +424,11 @@ Each package's Rakefile that uses `require "rwm/rake"` gets an automatic `rwm:ca
 rwm run spec --no-cache
 ```
 
-This forces all tasks to run regardless of cache state. Useful when debugging or when you suspect cache corruption (though the content-hash model makes corruption very unlikely).
+This forces all tasks to run regardless of cache state. Useful when debugging or when you suspect the cache is stale (though the content-hash model makes false hits impossible — only false misses).
 
 ### Cache storage
 
-The cache lives in `.rwm/cache/` — local, ephemeral, and gitignored. Each cache entry is a single file named `<package>-<task>` containing the content hash. Deleting `.rwm/cache/` is always safe; it just means the next run will re-execute everything.
+The cache lives in `.rwm/cache/` — local, ephemeral, and gitignored. Each cache entry is a single file named `<package>-<task>` containing the content hash string. Deleting `.rwm/cache/` is always safe; it just means the next run will re-execute everything.
 
 There is no remote/shared cache yet. This is a [planned future feature](#future).
 
@@ -562,7 +589,7 @@ RWM does not invent a task system. It delegates to Rake, which every Ruby projec
 
 ### Content-hash caching over timestamps
 
-The task cache uses SHA256 content hashes rather than file timestamps. Timestamps are fragile — they change when you switch branches, rebase, or touch files without modifying them. Content hashes are deterministic: if the bytes haven't changed, the hash hasn't changed, and the cache is valid. This is the same model that [redo](https://cr.yp.to/redo.html) and [Bazel](https://bazel.build/) use.
+The task cache uses SHA256 content hashes rather than file timestamps. Timestamps are fragile — they change when you switch branches, rebase, or touch files without modifying them. Content hashes are deterministic: if the bytes haven't changed, the hash hasn't changed, and the cache is valid. This is the same model that [redo](https://cr.yp.to/redo.html) and [Bazel](https://bazel.build/) use. See [Task caching](#task-caching) for the full mechanics, including where RWM's approach is coarser than true redo-style file-level tracking and why that tradeoff is intentional.
 
 <a id="future"></a>
 
