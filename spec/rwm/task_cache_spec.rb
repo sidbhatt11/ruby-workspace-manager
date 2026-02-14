@@ -258,6 +258,29 @@ RSpec.describe Rwm::TaskCache do
     end
   end
 
+  describe "#content_hash with missing dependency" do
+    it "raises PackageNotFoundError when a dependency is missing" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] }
+        })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        # Delete the auth package directory after building the graph
+        FileUtils.rm_rf(File.join(dir, "libs", "auth"))
+
+        # Force a fresh workspace that won't find auth
+        fresh_workspace = Rwm::Workspace.find(dir)
+        cache = described_class.new(fresh_workspace, graph)
+        billing = fresh_workspace.find_package("billing")
+
+        expect { cache.content_hash(billing) }.to raise_error(Rwm::PackageNotFoundError)
+      end
+    end
+  end
+
   describe "#cacheable?" do
     it "returns true for tasks declared via cache_declarations" do
       Dir.mktmpdir do |dir|
