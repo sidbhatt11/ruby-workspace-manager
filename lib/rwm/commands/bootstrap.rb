@@ -12,8 +12,11 @@ module Rwm
 
         bootstrap_root(workspace)
         setup_hooks(workspace)
-        bootstrap_packages(workspace)
-        build_graph(workspace)
+
+        graph = DependencyGraph.build(workspace)
+        bootstrap_packages(workspace, graph)
+        save_graph(workspace, graph)
+        validate_conventions(workspace, graph)
         update_vscode_workspace(workspace)
 
         puts
@@ -52,14 +55,12 @@ module Rwm
         end
       end
 
-      def bootstrap_packages(workspace)
+      def bootstrap_packages(workspace, graph)
         packages = workspace.packages
         if packages.empty?
           puts "==> No packages found. Skipping package bootstrap."
           return
         end
-
-        graph = DependencyGraph.build(workspace)
 
         # Step 1: bundle install in all packages (parallel by execution level)
         puts "==> Installing gems in #{packages.size} package(s)..."
@@ -92,15 +93,24 @@ module Rwm
         end
       end
 
-      def build_graph(workspace)
+      def save_graph(workspace, graph)
         puts
-        puts "==> Building dependency graph..."
-        require "rwm/commands/graph"
-        Commands::Graph.new([]).run
+        puts "==> Saving dependency graph..."
+        graph.save(workspace.graph_path, workspace.root)
+        puts "  Graph saved to .rwm/graph.json (#{graph.packages.size} packages, #{graph.edges.values.flatten.size} edges)"
+      end
 
+      def validate_conventions(_workspace, graph)
         puts "==> Validating conventions..."
-        require "rwm/commands/check"
-        Commands::Check.new([]).run
+        checker = ConventionChecker.new(graph)
+        violations = checker.check
+
+        if violations.empty?
+          puts "  All conventions passed."
+        else
+          $stderr.puts "Convention violations found:"
+          violations.each { |v| $stderr.puts "  - #{v}" }
+        end
       end
 
       def update_vscode_workspace(workspace)
