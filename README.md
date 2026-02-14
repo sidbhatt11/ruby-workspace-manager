@@ -26,15 +26,6 @@ RWM manages Ruby monorepos with multiple apps and libraries. It builds a depende
 
 See [GUIDE.md](GUIDE.md) for full usage documentation — dependencies, caching, affected detection, git hooks, design decisions, and more.
 
-## Development
-
-```sh
-git clone https://github.com/sidbhatt11/ruby-workspace-manager.git
-cd ruby-workspace-manager
-bundle install
-bundle exec rspec
-```
-
 ## License
 
 MIT
