@@ -1,3 +1,5 @@
+[![CI](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml)
+
 # RWM — Ruby Workspace Manager
 
 An Nx-like monorepo tool for Ruby. Convention-over-configuration, zero runtime dependencies, delegates to Rake.
@@ -73,11 +75,11 @@ rwm list
 
 | Command | Description |
 |---------|-------------|
-| `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, `.code-workspace`, update `.gitignore`, then bootstrap. Idempotent. |
-| `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, build graph, update `.code-workspace`. |
-| `rwm new <app\|lib> <name>` | Scaffold a new app or library with standard structure and update `.code-workspace`. |
+| `rwm init` | Initialize a workspace: create dirs, Gemfile, Rakefile, update `.gitignore`, then bootstrap. Pass `--vscode` to generate a `.code-workspace` file. Idempotent. |
+| `rwm bootstrap` | Install deps and run bootstrap tasks in root and all packages, build graph. Configures overcommit if `.overcommit.yml` is present. Updates `.code-workspace` if it exists. |
+| `rwm new <app\|lib> <name>` | Scaffold a new app or library with standard structure. Updates `.code-workspace` if it exists. |
 | `rwm info <name>` | Show package details: type, path, dependencies, dependents. |
-| `rwm graph` | Parse all Gemfiles, build the dependency DAG, save to `.rwm/graph.json`. |
+| `rwm graph` | Parse all Gemfiles, build the dependency DAG, save to `.rwm/graph.json`. Use `--dot` or `--mermaid` for visualization output. |
 | `rwm check` | Validate the dependency graph against conventions. Exit 0 on success, 1 on failure. |
 | `rwm list` | Print a table of all packages with their types, paths, and dependencies. |
 | `rwm run <task> [package]` | Run a Rake task across all packages, or a single named package. |
@@ -93,7 +95,7 @@ RWM reads each package's `Gemfile` and extracts `path:` dependencies. These are 
 
 ### Gemfile DSL
 
-Scaffolded packages include `require "rwm/gemfile"` which adds `rwm_lib` and `rwm_app` helpers:
+Scaffolded packages include `require "rwm/gemfile"` which adds the `rwm_lib` helper:
 
 ```ruby
 # libs/billing/Gemfile
@@ -102,7 +104,7 @@ require "rwm/gemfile"
 rwm_lib "auth"        # resolves to gem "auth", path: "<root>/libs/auth"
 ```
 
-This replaces the verbose `gem "auth", path: "../../libs/auth"` pattern. The helpers resolve the workspace root via git and build the correct path automatically.
+This replaces the verbose `gem "auth", path: "../../libs/auth"` pattern. The helper resolves the workspace root via git and builds the correct path automatically.
 
 You can still use the raw `gem ... path:` syntax if you prefer — both work.
 
@@ -114,9 +116,10 @@ The graph is serialized to `.rwm/graph.json` and used for task ordering, affecte
 
 1. `bundle install` in the workspace root
 2. `rake bootstrap` in the root (if defined)
-3. Set up overcommit hooks
+3. Set up overcommit hooks (if `.overcommit.yml` is present)
 4. `bundle install` + `rake bootstrap` in each package
 5. Build and validate the dependency graph
+6. Update `.code-workspace` (if it exists)
 
 `rwm init` calls `bootstrap` automatically. Both are idempotent.
 
@@ -149,9 +152,9 @@ Non-cacheable tasks (plain `task`) always run.
 - **Zero runtime deps** — only Ruby stdlib and Bundler (ships with Ruby)
 - **No config file** — the git root is the workspace root; `.rwm/` is generated state (gitignored)
 - **Auto-detect base branch** — reads the remote default from git, no need to configure `main` vs `master` vs `develop`
-- **Overcommit for git hooks** — `pre-push` runs `rwm check`, `post-commit` rebuilds the graph
+- **Overcommit for git hooks** — opt-in; if `.overcommit.yml` exists, `pre-push` runs `rwm check`, `post-commit` rebuilds the graph
 - **Parallel by default** — tasks run concurrently within each execution level
-- **VSCode workspace** — automatically generates/updates a `.code-workspace` file for multi-root workspace support
+- **VSCode workspace** — opt-in via `rwm init --vscode`; once created, bootstrap and new keep it updated
 - **Convention over configuration** — the directory layout _is_ the config
 
 ## Development

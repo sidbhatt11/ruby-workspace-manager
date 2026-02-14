@@ -41,13 +41,4 @@ RSpec.describe Rwm::GemfileDsl do
     end
   end
 
-  describe "#rwm_app" do
-    it "calls gem with the correct path under apps/" do
-      root = dsl.rwm_workspace_root
-      expected_path = File.join(root, "apps", "web")
-
-      expect(dsl).to receive(:gem).with("web", path: expected_path)
-      dsl.rwm_app("web")
-    end
-  end
 end

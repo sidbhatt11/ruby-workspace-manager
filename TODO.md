@@ -36,7 +36,7 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 
 ## Phase 6: Gemfile DSL
 - [x] rwm as dev dependency in scaffolded packages
-- [x] `lib/rwm/gemfile.rb` (rwm_lib / rwm_app helpers)
+- [x] `lib/rwm/gemfile.rb` (rwm_lib helper)
 - [x] Update `rwm new` scaffold
 - [x] Specs
 
@@ -49,3 +49,8 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 
 ## Enhancements
 - [x] VSCode `.code-workspace` file generation (init/bootstrap/new)
+- [x] Make overcommit opt-in (only configure if `.overcommit.yml` exists)
+- [x] Make VSCode workspace opt-in (`rwm init --vscode`)
+- [x] Remove `rwm_app` from Gemfile DSL (apps can't be depended on)
+- [x] Graph visualization (`rwm graph --dot` / `rwm graph --mermaid`)
+- [x] GitHub Actions CI workflow

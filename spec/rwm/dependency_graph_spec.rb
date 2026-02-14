@@ -91,6 +91,38 @@ RSpec.describe Rwm::DependencyGraph do
     end
   end
 
+  describe "#to_dot" do
+    it "returns a valid DOT digraph" do
+      graph = build_graph
+      dot = graph.to_dot("/tmp")
+
+      expect(dot).to include("digraph rwm {")
+      expect(dot).to include("rankdir=LR;")
+      expect(dot).to include('"auth" [label="auth (lib)"];')
+      expect(dot).to include('"billing" [label="billing (lib)"];')
+      expect(dot).to include('"api" [label="api (app)"];')
+      expect(dot).to include('"billing" -> "auth";')
+      expect(dot).to include('"api" -> "auth";')
+      expect(dot).to include('"api" -> "billing";')
+      expect(dot).to include("}")
+    end
+  end
+
+  describe "#to_mermaid" do
+    it "returns a valid Mermaid flowchart" do
+      graph = build_graph
+      mermaid = graph.to_mermaid("/tmp")
+
+      expect(mermaid).to include("graph LR")
+      expect(mermaid).to include('auth["auth (lib)"]')
+      expect(mermaid).to include('billing["billing (lib)"]')
+      expect(mermaid).to include('api["api (app)"]')
+      expect(mermaid).to include("billing --> auth")
+      expect(mermaid).to include("api --> auth")
+      expect(mermaid).to include("api --> billing")
+    end
+  end
+
   describe "JSON serialization" do
     it "saves and produces valid JSON structure" do
       Dir.mktmpdir do |dir|

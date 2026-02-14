@@ -30,6 +30,8 @@ module Rwm
       end
 
       def setup_overcommit(workspace)
+        return unless File.exist?(File.join(workspace.root, ".overcommit.yml"))
+
         puts "==> Setting up overcommit..."
 
         overcommit = Overcommit.new(workspace.root)
@@ -94,7 +96,10 @@ module Rwm
       end
 
       def update_vscode_workspace(workspace)
-        VscodeWorkspace.new(workspace.root).generate(workspace.packages)
+        vscode = VscodeWorkspace.new(workspace.root)
+        return unless File.exist?(vscode.file_path)
+
+        vscode.generate(workspace.packages)
       end
 
       def run_bundle_install(dir)

@@ -44,6 +44,9 @@ module Rwm
       private
 
       def update_vscode_workspace(workspace)
+        vscode = VscodeWorkspace.new(workspace.root)
+        return unless File.exist?(vscode.file_path)
+
         # Use a fresh Workspace to pick up the newly scaffolded package
         fresh_workspace = Workspace.find(workspace.root)
         VscodeWorkspace.new(fresh_workspace.root).generate(fresh_workspace.packages)

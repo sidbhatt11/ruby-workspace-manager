@@ -10,7 +10,6 @@
 #   gemspec
 #
 #   rwm_lib "auth"
-#   rwm_app "web"
 
 require "bundler"
 
@@ -27,10 +26,6 @@ module Rwm
       gem(name.to_s, **opts, path: path)
     end
 
-    def rwm_app(name, **opts)
-      path = File.join(rwm_workspace_root, "apps", name.to_s)
-      gem(name.to_s, **opts, path: path)
-    end
   end
 end
 

@@ -33,7 +33,7 @@ rwm/
 │       ├── cli.rb                # OptionParser-based dispatcher
 │       ├── workspace.rb          # discovers root, packages
 │       ├── package.rb            # single lib/app model
-│       ├── gemfile.rb            # Bundler DSL extension (rwm_lib/rwm_app)
+│       ├── gemfile.rb            # Bundler DSL extension (rwm_lib)
 │       ├── gemfile_parser.rb     # Bundler DSL → path deps
 │       ├── dependency_graph.rb   # DAG via TSort (cycle detection, topo sort)
 │       ├── convention_checker.rb # structural rule enforcement
@@ -63,12 +63,12 @@ rwm/
 
 | Command | Behavior |
 |---------|----------|
-| `rwm init` | Create dirs, Gemfile, Rakefile, update `.gitignore`, then call `bootstrap`. Idempotent — safe to re-run |
+| `rwm init` | Create dirs, Gemfile, Rakefile, update `.gitignore`, then call `bootstrap`. Pass `--vscode` to generate `.code-workspace`. Idempotent — safe to re-run |
 | `rwm bootstrap` | `bundle install` + `rake bootstrap` in root, then same in all packages, then build graph. The "clone and go" command |
 | `rwm new app <name>` | Scaffold a new app in `apps/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
 | `rwm new lib <name>` | Scaffold a new lib in `libs/<name>/` with Gemfile, gemspec, Rakefile, lib/ |
 | `rwm info <name>` | Show details about a package: type, path, deps, dependents, rake tasks |
-| `rwm graph` | Parse all Gemfiles, build DAG, validate, write `.rwm/graph.json` |
+| `rwm graph` | Parse all Gemfiles, build DAG, validate, write `.rwm/graph.json`. `--dot` / `--mermaid` for visualization |
 | `rwm check` | Validate graph (cycles, conventions, staleness). Exit 0/1/2 |
 | `rwm test` | Run `rake test` in all packages (topo order). Shortcut for `rwm run test` |
 | `rwm run <task> --affected` | Only run on packages changed since base branch + their dependents |
@@ -82,7 +82,7 @@ rwm/
 2. **Graph**: Ruby's `TSort` stdlib (Tarjan's algorithm) for topological sort + cycle detection. Stored as JSON in `.rwm/graph.json`.
 3. **Task execution**: `bundle exec rake <task>` in each package dir. Always parallel — groups packages by execution level (packages at same level have no interdependency), runs each level concurrently.
 4. **Affected detection**: `git diff --name-only` → map files to packages → walk graph for transitive dependents. Root-level changes = all packages affected.
-5. **Overcommit for git hooks**: Use the [overcommit](https://github.com/sds/overcommit) gem instead of hand-rolled git hooks. `rwm init` installs overcommit and configures rwm-specific hooks (e.g. `pre-push` runs `rwm check`, `post-commit` rebuilds graph on Gemfile changes). Users are expected to use overcommit — rwm leans into it.
+5. **Overcommit for git hooks (opt-in)**: Use the [overcommit](https://github.com/sds/overcommit) gem instead of hand-rolled git hooks. Bootstrap configures rwm hooks only if `.overcommit.yml` already exists. Users who want overcommit add the gem and config themselves.
 6. **No CLI framework**: Plain `OptionParser` from stdlib. No Thor, no GLI.
 7. **Zero runtime deps**: Only Ruby stdlib + Bundler (ships with Ruby since 2.6). Overcommit is the sole exception — it's a development dependency that rwm sets up for users.
 8. **No config file**: The git root is the workspace root. `.rwm/` is generated state (gitignored), created on demand to store `graph.json`. Sensible defaults are baked in (base branch = auto-detected from git, package dirs = `libs/` + `apps/`). If configuration becomes necessary later, it lives inside `.rwm/`.
@@ -131,9 +131,10 @@ rwm/
 
 ### Init (`lib/rwm/commands/init.rb`)
 - Creates `libs/` and `apps/` directories if not already present
-- Creates a root `Gemfile` if missing (includes `rwm` and `overcommit` gems)
+- Creates a root `Gemfile` if missing (includes `rwm` gem)
 - Creates a root `Rakefile` if missing (includes an empty `bootstrap` task that prints a helpful message)
 - Adds `.rwm/` to `.gitignore` (appends if file exists, creates if not; skips if already present)
+- `--vscode` flag generates a `.code-workspace` file
 - Calls `bootstrap` as the last step
 - Idempotent — safe to re-run anytime to fix a broken state
 
@@ -141,9 +142,10 @@ rwm/
 - Follows the same pattern everywhere: `bundle install` → `rake bootstrap` (if available)
 - Steps:
   1. Bootstrap the root: `bundle install`, then `rake bootstrap` if defined (init ensures it is)
-  2. Set up overcommit (install hooks, merge rwm hooks into `.overcommit.yml`)
-  3. Bootstrap all packages: same pattern in each package (sequential initially, parallel by execution level once TaskRunner lands)
+  2. Set up overcommit (only if `.overcommit.yml` exists)
+  3. Bootstrap all packages: same pattern in each package (parallel by execution level)
   4. Build and validate the dependency graph (`rwm graph` + `rwm check`)
+  5. Update `.code-workspace` (only if the file already exists)
 - Root Rakefile has a `bootstrap` task by default (prints a helpful message, developers customize it for binstubs, shared tooling, etc.)
 - Streams progress with clear status output
 - Fails fast with a helpful message if any step fails
@@ -152,7 +154,6 @@ rwm/
 ### GemfileDsl (`lib/rwm/gemfile.rb`)
 - Bundler DSL extension via `prepend` on `Bundler::Dsl`
 - `rwm_lib(name)`: resolves to `gem(name, path: "<root>/libs/<name>")`
-- `rwm_app(name)`: resolves to `gem(name, path: "<root>/apps/<name>")`
 - Workspace root discovered via `git rev-parse --show-toplevel`
 - Loaded in Gemfiles with `require "rwm/gemfile"`
 
@@ -180,7 +181,7 @@ rwm/
 - Generates/updates a `<dirname>.code-workspace` file for VSCode multi-root workspace support
 - `folders` array: root `.` first, then libs sorted, then apps sorted (relative paths)
 - Preserves existing `settings`, `extensions`, `launch`, `tasks` keys — only replaces `folders`
-- Called by `init` (empty), `bootstrap` (all packages), and `new` (after scaffolding)
+- Opt-in: `rwm init --vscode` creates it initially; `bootstrap` and `new` update it only if the file already exists
 
 ### Overcommit (`lib/rwm/overcommit.rb`)
 - Sets up overcommit in the workspace: runs `overcommit --install`, merges rwm hooks into `.overcommit.yml`
@@ -188,7 +189,7 @@ rwm/
 - Configures rwm-specific hooks:
   - `pre_push`: runs `rwm check`, blocks push on failure
   - `post_commit`: runs `rwm graph` if any Gemfile changed in the commit
-- Called by `init`
+- Opt-in: bootstrap only calls setup if `.overcommit.yml` already exists
 
 ## graph.json Format
 
@@ -245,7 +246,7 @@ rwm/
 23. Specs
 
 ### Phase 6: Gemfile DSL
-24. `lib/rwm/gemfile.rb` — Bundler DSL extension (`rwm_lib`, `rwm_app`)
+24. `lib/rwm/gemfile.rb` — Bundler DSL extension (`rwm_lib`)
 25. Update `rwm new` scaffold to add rwm as dev dep, include `require "rwm/gemfile"` in Gemfile
 26. Specs
 
@@ -268,4 +269,3 @@ rwm/
 - Remote caching (shared across CI + devs)
 - Custom composite tasks (config inside `.rwm/` if needed)
 - Watch mode
-- Graphviz output (`rwm graph --dot`)

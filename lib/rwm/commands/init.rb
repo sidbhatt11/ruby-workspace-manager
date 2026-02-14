@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "optparse"
 
 module Rwm
   module Commands
@@ -11,7 +12,6 @@ module Rwm
         source "https://rubygems.org"
 
         gem "rwm"
-        gem "overcommit"
       GEMFILE
 
       RAKEFILE_TEMPLATE = <<~RAKEFILE
@@ -25,6 +25,8 @@ module Rwm
 
       def initialize(argv)
         @argv = argv
+        @vscode = false
+        parse_options
       end
 
       def run
@@ -34,7 +36,10 @@ module Rwm
         create_gemfile(root)
         create_rakefile(root)
         update_gitignore(root)
-        generate_vscode_workspace(root)
+
+        if @vscode
+          generate_vscode_workspace(root)
+        end
 
         puts "Workspace initialized. Running bootstrap..."
         puts
@@ -45,6 +50,14 @@ module Rwm
       end
 
       private
+
+      def parse_options
+        OptionParser.new do |opts|
+          opts.on("--vscode", "Generate VSCode .code-workspace file") do
+            @vscode = true
+          end
+        end.parse!(@argv)
+      end
 
       def create_directories(root)
         %w[libs apps].each do |dir|

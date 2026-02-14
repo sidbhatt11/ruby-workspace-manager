@@ -76,6 +76,8 @@ module Rwm
           new <type> <name> Scaffold a new app or lib
           info <name>       Show details about a package
           graph             Build and save the dependency graph
+            --dot           Output in Graphviz DOT format
+            --mermaid       Output in Mermaid format
           check             Validate dependency graph and conventions
           run <task> [pkg]  Run a rake task across all (or one) package(s)
           test              Shortcut for `rwm run test`

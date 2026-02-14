@@ -137,6 +137,43 @@ module Rwm
       graph
     end
 
+    def to_dot(workspace_root)
+      lines = []
+      lines << "digraph rwm {"
+      lines << "  rankdir=LR;"
+      lines << "  node [shape=box];"
+
+      @packages.each_value do |pkg|
+        lines << "  \"#{pkg.name}\" [label=\"#{pkg.name} (#{pkg.type})\"];"
+      end
+
+      @edges.each do |from, deps|
+        deps.each do |to|
+          lines << "  \"#{from}\" -> \"#{to}\";"
+        end
+      end
+
+      lines << "}"
+      lines.join("\n") + "\n"
+    end
+
+    def to_mermaid(workspace_root)
+      lines = []
+      lines << "graph LR"
+
+      @packages.each_value do |pkg|
+        lines << "  #{pkg.name}[\"#{pkg.name} (#{pkg.type})\"]"
+      end
+
+      @edges.each do |from, deps|
+        deps.each do |to|
+          lines << "  #{from} --> #{to}"
+        end
+      end
+
+      lines.join("\n") + "\n"
+    end
+
     private
 
     # TSort interface
