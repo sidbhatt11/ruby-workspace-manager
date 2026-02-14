@@ -74,6 +74,8 @@ rwm/
 | `rwm test` | Run `rake test` in all packages (topo order). Shortcut for `rwm run test` |
 | `rwm run <task> --affected` | Only run on packages changed since base branch + their dependents |
 | `rwm run <task> --no-cache` | Bypass automatic task-level caching |
+| `rwm run <task> --buffered` | Buffer output per-package and print on completion (default: stream) |
+| `rwm run <task> --concurrency N` | Limit parallel workers (default: processor count) |
 | `rwm list` | Print table of packages (name, type, path, deps) |
 | `rwm affected` | Show which packages are affected by current changes |
 
@@ -131,7 +133,7 @@ rwm/
 - Maintains a ready-set: packages whose dependencies have all completed successfully
 - Workers pull from the ready-set — a package starts the instant its deps finish, no waiting for unrelated packages
 - On failure: the failed package's transitive dependents are marked as skipped (they can never satisfy their deps)
-- Buffers output per-package and prints on completion — no interleaving across packages. Output appears in completion order. Successful packages print to stdout, failed packages print to stderr with a failure header.
+- Output mode: streams `[pkg] line` output as it happens by default (useful for CI where you want real-time feedback). `--buffered` flag switches to buffered mode — collects all output per-package and prints each package's complete block on completion with a clear header, failures to stderr. Streaming is the default because most CI systems want to see progress in real time.
 - `execution_levels` method remains available on `DependencyGraph` for display/debugging but is no longer used for scheduling
 
 ### Init (`lib/rwm/commands/init.rb`)
@@ -270,7 +272,7 @@ rwm/
 
 ### Phase 8: Hardening (does not depend on Phase 9)
 32. Graph staleness detection — `DependencyGraph.load` compares mtime of `graph.json` against all package Gemfiles. If any Gemfile is newer, auto-rebuilds and re-saves the graph. Cheap check (one `File.mtime` per package), avoids stale edges when someone edits a Gemfile without running `rwm graph`.
-33. Buffered task output — `TaskRunner` already captures output via `Open3.capture3`, but prints it as each package finishes. With multiple packages in a level, output from different packages can appear back-to-back in confusing order. Change to: buffer all output per-package, print each package's complete block on completion with a clear header (`==> [package_name]`), and print failures to stderr. This makes output scannable in large monorepos.
+33. Buffered task output — add `--buffered` flag to `rwm run`. Default remains streaming (print `[pkg] line` as it happens — good for CI). When `--buffered` is passed, buffer all output per-package and print each package's complete block on completion with a clear header (`==> [package_name]`), failures to stderr. `TaskRunner` accepts a `buffered:` keyword; `Commands::Run` wires the flag through. Streaming stays the default because CI teams want real-time progress.
 34. Bootstrap error handling — replace `exit 1` calls in `Bootstrap#bootstrap_packages` with `raise BootstrapError`. The CLI dispatcher (`cli.rb`) already rescues `Rwm::Error` subclasses and exits with code 1. This keeps bootstrap usable as library code (e.g. from Rake tasks or tests) without killing the process.
 35. Specs for all above
 

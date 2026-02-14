@@ -60,7 +60,7 @@ See [PLAN.md](PLAN.md) for full architecture and design details.
 ## Phase 8: Hardening
 
 - [ ] Graph staleness detection — `DependencyGraph.load` auto-rebuilds when any Gemfile is newer than `graph.json`
-- [ ] Buffered task output — print per-package output on completion instead of interleaving
+- [ ] Buffered task output (`--buffered`) — opt-in flag to print per-package output on completion instead of streaming
 - [ ] Replace `exit 1` in bootstrap with exceptions (`BootstrapError`)
 - [ ] Specs
 
