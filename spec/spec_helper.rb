@@ -21,7 +21,9 @@ end
 module FixtureHelper
   def create_fixture_workspace(dir, packages: {})
     # Initialize a git repo so Workspace.find can detect the root
-    system("git", "init", "--quiet", dir) unless File.directory?(File.join(dir, ".git"))
+    unless File.directory?(File.join(dir, ".git"))
+      system("git", "init", "--quiet", "--initial-branch=main", dir)
+    end
     FileUtils.mkdir_p(File.join(dir, "libs"))
     FileUtils.mkdir_p(File.join(dir, "apps"))
 

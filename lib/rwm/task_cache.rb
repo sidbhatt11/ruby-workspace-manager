@@ -93,7 +93,10 @@ module Rwm
     def source_files(package)
       Dir.glob(File.join(package.path, "**", "*"))
          .select { |f| File.file?(f) }
-         .reject { |f| f.include?("/tmp/") || f.include?("/vendor/") || f.include?("/.bundle/") }
+         .reject do |f|
+           rel = f.delete_prefix("#{package.path}/")
+           rel.start_with?("tmp/") || rel.start_with?("vendor/") || rel.start_with?(".bundle/")
+         end
          .sort
     end
 
