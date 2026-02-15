@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.4.0"
 
-  spec.files = Dir.glob("{bin,lib}/**/*") + %w[LICENSE.txt README.md]
+  spec.files = Dir.glob("{bin,lib,completions}/**/*") + %w[LICENSE.txt README.md]
   spec.bindir = "bin"
   spec.executables = ["rwm"]
   spec.require_paths = ["lib"]
