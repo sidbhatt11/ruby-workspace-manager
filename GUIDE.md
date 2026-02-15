@@ -661,77 +661,70 @@ Three rules are enforced:
 
 ## Rails and Zeitwerk
 
-Rails uses [Zeitwerk](https://github.com/fxn/zeitwerk) for autoloading, and Zeitwerk overrides `Kernel#require`. This creates a conflict with workspace libraries: when your lib does `require "core"`, Zeitwerk intercepts the call and looks for a matching constant in its autoload paths instead of falling through to Bundler's load paths. The result is a `LoadError` even though the gem is installed.
+Rails uses [Zeitwerk](https://github.com/fxn/zeitwerk) for autoloading. Zeitwerk overrides `Kernel#require` — so when your code calls `require "auth"`, Zeitwerk intercepts it and looks for a matching constant in its autoload paths instead of falling through to Bundler's load paths. The result is a `LoadError` even though the gem is installed and on the load path.
 
-Two things are needed to make Rails apps work smoothly in an RWM workspace:
+The fix is straightforward: require your workspace libs *before* Zeitwerk starts. RWM provides two pieces that make this a one-liner.
 
-### 1. Declare workspace dependencies with `rwm_lib`
+### Setup
 
-Use `rwm_lib` in your Rails app's Gemfile. Transitive workspace dependencies are resolved automatically — if `auth` depends on `core`, you only need to declare `auth`:
+**1. Gemfile** — declare your direct workspace deps with `rwm_lib`. Transitive deps are resolved automatically (see [Transitive resolution](#transitive-resolution)):
 
 ```ruby
 # apps/web/Gemfile
 require "rwm/gemfile"
 
-rwm_lib "auth"    # core is added automatically (auth's transitive dep)
+source "https://rubygems.org"
+gemspec
+
+rwm_lib "auth"    # auth depends on core — core is added automatically
 ```
 
-See [Transitive resolution](#transitive-resolution) for details on how this works.
-
-### 2. Require workspace libs before Zeitwerk loads
-
-The standard Rails boot sequence is:
-
-1. `config/boot.rb` calls `Bundler.setup` (sets up load paths for all gems)
-2. `config/application.rb` requires Rails and defines the application class
-3. `config/environment.rb` calls `Rails.application.initialize!` (Zeitwerk starts here)
-
-Workspace libs must be required **after** `Bundler.setup` (so load paths exist) but **before** `Rails.application.initialize!` (so Zeitwerk doesn't intercept the calls). Use `Rwm.require_libs` in `config/application.rb`:
+`ruby_workspace_manager` must be a **runtime dependency** for Rails apps that use `Rwm.require_libs` (not in the `:development` group). The gem has zero runtime deps itself, so this adds no weight. Without it, the app cannot boot — `require "rwm/rails"` would fail.
 
 ```ruby
-# apps/web/config/boot.rb
-ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
-require "bundler/setup"
+# apps/web/web.gemspec
+spec.add_dependency "ruby_workspace_manager"
 ```
+
+**2. application.rb** — require workspace libs before Rails loads:
 
 ```ruby
 # apps/web/config/application.rb
 require_relative "boot"
+
 require "rwm/rails"
 Rwm.require_libs
+
 require "rails"
 require "action_controller/railtie"
 
 module Web
   class Application < Rails::Application
     config.load_defaults 8.0
-    # ...
   end
 end
 ```
 
-`Rwm.require_libs` requires exactly the libs that were declared via `rwm_lib` in the app's Gemfile (including transitive deps). It replaces manually listing `require "core"` / `require "auth"` for each workspace lib.
+That's it. `Rwm.require_libs` requires exactly the libs that `rwm_lib` resolved in the Gemfile — direct and transitive. Nothing more, nothing less. After this line, `Auth` and `Core` are loaded as plain Ruby modules. Zeitwerk takes over for the app's own code under `app/` and never touches workspace libraries.
 
-With this setup, workspace libs are loaded as plain Ruby modules. Zeitwerk manages only the app's own code under `app/` — it never needs to know about workspace libraries.
+### Why this ordering matters
+
+The Rails boot sequence is:
+
+1. `config/boot.rb` — `Bundler.setup` adds all bundled gems to the load path.
+2. `config/application.rb` — your code runs, then `require "rails"` loads Rails and Zeitwerk.
+3. `config/environment.rb` — `Rails.application.initialize!` activates Zeitwerk autoloading.
+
+`Rwm.require_libs` must run in step 2, **after** `Bundler.setup` (so load paths exist) and **before** `require "rails"` (so Zeitwerk hasn't overridden `require` yet). The two lines — `require "rwm/rails"` then `Rwm.require_libs` — slot in exactly there.
 
 ### What doesn't work
 
-- **`require "auth"` inside a controller** — By the time controllers load, Zeitwerk is active and intercepts the call. Always require workspace libs in `config/application.rb` (or use `Rwm.require_libs`) instead.
-- **Relying on Zeitwerk to autoload workspace modules** — Zeitwerk only manages directories registered as autoload paths. Workspace libs live outside the Rails app and are not registered. Don't try to add them to `config.autoload_paths` — they have their own internal structure that may not follow Zeitwerk's naming conventions.
+- **`require "auth"` inside a controller or model.** By that point Zeitwerk is active and intercepts the call. Always require workspace libs in `config/application.rb`.
+- **Adding workspace libs to `config.autoload_paths`.** Zeitwerk expects directories to follow its naming conventions. Workspace libs have their own internal structure and should not be registered as autoload paths.
 
-### Example workspace layout
+### Non-Rails apps
 
-```
-my-project/
-├── libs/
-│   ├── core/          # shared utilities
-│   └── auth/          # depends on core
-├── apps/
-│   ├── api/           # plain Ruby app — no Zeitwerk issues
-│   └── web/           # Rails app — needs the setup above
-```
-
-Non-Rails apps (like `api`) don't use Zeitwerk and can `require` workspace libs anywhere without issues. The guidance in this section applies only to Rails apps.
+Plain Ruby apps (without Zeitwerk) don't have this problem. They can `require` workspace libs anywhere — no special boot ordering needed. The guidance in this section applies only to Rails apps.
 
 ## VSCode integration
 
