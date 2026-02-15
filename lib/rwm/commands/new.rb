@@ -53,13 +53,14 @@ module Rwm
       end
 
       def scaffold(pkg_path, name, type)
-        FileUtils.mkdir_p(File.join(pkg_path, "lib", name))
+        source_dir = type == "lib" ? "lib" : "app"
+        FileUtils.mkdir_p(File.join(pkg_path, source_dir, name))
         FileUtils.mkdir_p(File.join(pkg_path, "spec"))
 
         write_gemfile(pkg_path, name)
         write_gemspec(pkg_path, name, type)
         write_rakefile(pkg_path, name)
-        write_lib_entry(pkg_path, name)
+        write_entry_file(pkg_path, name, type)
         write_spec_helper(pkg_path)
       end
 
@@ -94,8 +95,9 @@ module Rwm
           '',
         ]
         lines << '  spec.files = Dir.glob("lib/**/*")' if type == "lib"
+        source_dir = type == "lib" ? "lib" : "app"
         lines.concat([
-          '  spec.require_paths = ["lib"]',
+          "  spec.require_paths = [\"#{source_dir}\"]",
           '  spec.required_ruby_version = ">= 3.4.0"',
           'end',
           '',
@@ -121,8 +123,9 @@ module Rwm
         RAKEFILE
       end
 
-      def write_lib_entry(pkg_path, name)
-        File.write(File.join(pkg_path, "lib", "#{name}.rb"), <<~RUBY)
+      def write_entry_file(pkg_path, name, type)
+        source_dir = type == "lib" ? "lib" : "app"
+        File.write(File.join(pkg_path, source_dir, "#{name}.rb"), <<~RUBY)
           # frozen_string_literal: true
 
           module #{camelize(name)}
