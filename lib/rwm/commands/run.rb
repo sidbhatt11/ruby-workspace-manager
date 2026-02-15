@@ -98,17 +98,26 @@ module Rwm
           end
         end
 
-        skipped = runner.results.select(&:skipped)
-        skipped.each { |r| Rwm.debug("skipped (no task): #{r.package_name}") }
+        passed, rest = runner.results.partition { |r| r.success && !r.skipped }
+        failed, skipped = rest.partition { |r| !r.success }
+        skipped_from_rest = runner.results.select(&:skipped)
 
-        actual_results = runner.results.reject(&:skipped)
+        total = runner.results.size
+        parts = []
+        parts << "#{passed.size} passed" unless passed.empty?
+        parts << "#{failed.size} failed" unless failed.empty?
+        parts << "#{skipped_from_rest.size} skipped" unless skipped_from_rest.empty?
+
         puts
-        if runner.success?
-          puts "All packages passed."
+        puts "#{total} package(s): #{parts.join(", ")}."
+
+        Rwm.debug("passed: #{passed.map(&:package_name).join(", ")}") unless passed.empty?
+        Rwm.debug("skipped (no matching task): #{skipped_from_rest.map(&:package_name).join(", ")}") unless skipped_from_rest.empty?
+
+        if failed.empty?
           0
         else
-          failed = actual_results.reject(&:success)
-          $stderr.puts "#{failed.size} package(s) failed:"
+          $stderr.puts "Failed:"
           failed.each { |r| $stderr.puts "  - #{r.package_name}" }
           1
         end
