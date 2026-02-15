@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "pathname"
-require "open3"
 
 module Rwm
   class Package
@@ -23,27 +22,6 @@ module Rwm
 
     def has_rakefile?
       File.exist?(File.join(path, "Rakefile"))
-    end
-
-    def has_rake_task?(task)
-      return false unless has_rakefile?
-
-      rake_tasks.include?(task)
-    end
-
-    def rake_tasks
-      return @rake_tasks if defined?(@rake_tasks)
-
-      Rwm.debug("#{name}: running `bundle exec rake -P`")
-      output, _, status = Open3.capture3("bundle", "exec", "rake", "-P", chdir: path)
-      @rake_tasks = if status.success?
-                      output.lines
-                            .map(&:strip)
-                            .select { |line| line.start_with?("rake ") }
-                            .map { |line| line.delete_prefix("rake ") }
-                    else
-                      []
-                    end
     end
 
     def gemfile_path
