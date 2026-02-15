@@ -28,7 +28,7 @@ _rwm() {
   local cur prev words cword
   _init_completion || return
 
-  local commands="init bootstrap new info graph check list run affected cache test spec build help version"
+  local commands="init bootstrap new info graph check list run affected cache help version"
   local global_flags="--verbose --help --version"
 
   # Find the command (first non-flag argument after rwm)
@@ -129,7 +129,8 @@ _rwm() {
           ;;
       esac
       ;;
-    test | spec | build)
+    *)
+      # Any unrecognized command is a task shortcut — offer run flags and packages
       local run_flags="--affected --committed --base --dry-run --no-cache --buffered --concurrency"
       case "$prev" in
         --base | --concurrency)

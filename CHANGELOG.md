@@ -13,6 +13,7 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - Ctrl+C signal trapping in the DAG scheduler with clean thread teardown
 
 ### Changed
+- Any unrecognized command is now treated as a task name: `rwm test` = `rwm run test`, `rwm lint` = `rwm run lint` (replaces fixed `test`/`spec`/`build` shortcuts)
 - App scaffolding (`rwm new app`) now uses `app/` instead of `lib/` for source code, with `require_paths = ["app"]` in the generated gemspec
 - Task cache now uses `git ls-files` for source file discovery instead of directory globbing, automatically respecting `.gitignore`
 - Task runner now uses try-and-handle approach: runs all packages with a Rakefile and gracefully skips those missing the requested task, instead of pre-checking with `rake -P`

@@ -15,9 +15,6 @@ module Rwm
       "cache"     => "Commands::Cache"
     }.freeze
 
-    # Shortcuts that expand to `run <task>`
-    TASK_SHORTCUTS = %w[test spec build].freeze
-
     def self.run(argv)
       new(argv).run
     end
@@ -43,21 +40,15 @@ module Rwm
 
       check_required_tools
 
-      # Expand task shortcuts: `rwm test` → `rwm run test`
-      if TASK_SHORTCUTS.include?(command_name)
+      # Unknown commands are treated as task names: `rwm test` → `rwm run test`
+      unless COMMANDS.key?(command_name)
         @argv.unshift(command_name)
         command_name = "run"
       end
 
-      const_name = COMMANDS[command_name]
-      unless const_name
-        $stderr.puts "Unknown command: #{command_name}"
-        $stderr.puts "Run `rwm help` for available commands."
-        return 1
-      end
-
       # Autoload the command
       require "rwm/commands/#{command_name}"
+      const_name = COMMANDS[command_name]
       command_class = const_name.split("::").reduce(Rwm) { |mod, name| mod.const_get(name) }
       command_class.new(@argv).run
     rescue Rwm::Error => e
@@ -89,7 +80,7 @@ module Rwm
         Usage: rwm <command> [options]
 
         Commands:
-          init              Initialize a new rwm workspace
+          init [--vscode]   Initialize a new rwm workspace
           bootstrap         Install deps and run bootstrap tasks in all packages
           new <type> <name> Scaffold a new app or lib
           info <name>       Show details about a package
@@ -98,13 +89,19 @@ module Rwm
             --mermaid       Output in Mermaid format
           check             Validate dependency graph and conventions
           run <task> [pkg]  Run a rake task across all (or one) package(s)
-          test              Shortcut for `rwm run test`
           affected          Show packages affected by current changes
+            --base REF      Compare against REF instead of auto-detected base
+            --committed     Only consider committed changes
           list              List all packages in the workspace
           cache clean [pkg] Clear cached task results
           help              Show this help
+          version           Show version
 
-        Run options:
+        Any unrecognized command is treated as a task name:
+          rwm test          → rwm run test
+          rwm lint          → rwm run lint
+
+        Run options (for `rwm run` and task shortcuts):
           --affected        Only run on affected packages
           --committed       Only consider committed changes (with --affected)
           --base REF        Compare against REF instead of auto-detected base
@@ -113,7 +110,7 @@ module Rwm
           --buffered        Buffer output per-package
           --concurrency N   Max parallel workers (default: CPU count)
 
-        Options:
+        Global options:
           -h, --help        Show this help
           -v, --version     Show version
           --verbose         Enable debug logging (or set RWM_DEBUG=1)

@@ -360,9 +360,10 @@ Paths are stored relative to the workspace root.
 rwm run <task>              # run in all packages
 rwm run <task> <package>    # run in one package
 rwm test                    # shortcut for `rwm run test`
-rwm spec                    # shortcut for `rwm run spec`
-rwm build                   # shortcut for `rwm run build`
+rwm lint auth               # shortcut for `rwm run lint auth`
 ```
+
+Any command that isn't a built-in rwm subcommand is treated as a task name and forwarded to `rwm run`. This means `rwm test`, `rwm spec`, `rwm build`, `rwm lint`, or any other task name all work as shortcuts.
 
 RWM runs `bundle exec rake <task>` in each package directory that has a Rakefile. Packages that don't define the requested task are detected automatically and silently skipped — they won't fail or cause their dependents to be skipped.
 
@@ -687,9 +688,7 @@ Both scripts dynamically discover package names by scanning `libs/` and `apps/` 
 | `rwm check` | Validate conventions. Exit 0 on pass, 1 on failure. |
 | `rwm list` | Print a table of all packages. |
 | `rwm run <task> [pkg]` | Run a Rake task across packages. Packages without the task are skipped. |
-| `rwm test` | Shortcut for `rwm run test`. |
-| `rwm spec` | Shortcut for `rwm run spec`. |
-| `rwm build` | Shortcut for `rwm run build`. |
+| `rwm <task> [pkg]` | Any unknown command is a task shortcut: `rwm test` = `rwm run test`. |
 | `rwm affected [--committed] [--base REF]` | Show affected packages. |
 | `rwm cache clean [pkg]` | Clear cached task results for one or all packages. |
 | `rwm help` | Show available commands. |

@@ -40,9 +40,6 @@ _rwm() {
     'run:Run a rake task across all or one package'
     'affected:Show packages affected by current changes'
     'cache:Manage task cache'
-    'test:Shortcut for rwm run test'
-    'spec:Shortcut for rwm run spec'
-    'build:Shortcut for rwm run build'
     'help:Show help'
     'version:Show version'
   )
@@ -116,7 +113,8 @@ _rwm() {
         '1:task' \
         '2:package:_rwm_complete_packages'
       ;;
-    test | spec | build)
+    *)
+      # Any unrecognized command is a task shortcut — offer run flags and packages
       _arguments -s \
         $run_flags \
         '1:package:_rwm_complete_packages'

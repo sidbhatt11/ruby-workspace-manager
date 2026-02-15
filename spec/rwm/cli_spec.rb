@@ -32,10 +32,18 @@ RSpec.describe Rwm::CLI do
       expect { described_class.run([]) }.to output(/Ruby Workspace Manager/).to_stdout
     end
 
-    it "returns 1 for unknown commands" do
-      result = nil
-      expect { result = described_class.run(["nonexistent"]) }.to output(/Unknown command/).to_stderr
-      expect(result).to eq(1)
+    it "treats unknown commands as task names via run" do
+      fake_cmd = double("cmd", run: 0)
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).with(["lint"]).and_return(fake_cmd)
+      stub_const("Rwm::Commands::Run", fake_class)
+
+      cli = described_class.new(["lint"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/run")
+
+      result = cli.run
+      expect(result).to eq(0)
     end
 
     it "returns error when git is not available" do
@@ -69,10 +77,6 @@ RSpec.describe Rwm::CLI do
       expect { cli.run }.to output(/rwm/).to_stdout
     end
 
-    it "recognizes task shortcuts" do
-      expect(Rwm::CLI::TASK_SHORTCUTS).to include("test", "spec", "build")
-    end
-
     it "registers the cache command" do
       expect(Rwm::CLI::COMMANDS).to include("cache" => "Commands::Cache")
     end
@@ -93,7 +97,7 @@ RSpec.describe Rwm::CLI do
       expect { described_class.run(["--help"]) }.to output(/--base REF/).to_stdout
     end
 
-    it "expands task shortcuts to run command" do
+    it "forwards unknown commands as tasks to run" do
       fake_cmd = double("cmd", run: 0)
       fake_class = double("class")
       allow(fake_class).to receive(:new).with(["test"]).and_return(fake_cmd)

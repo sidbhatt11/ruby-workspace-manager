@@ -18,7 +18,7 @@ RWM manages Ruby monorepos with multiple apps and libraries. It builds a depende
 | `rwm new <app\|lib> <name>` | Scaffold a new package. |
 | `rwm graph` | Rebuild the dependency graph. `--dot` / `--mermaid` for visualization. |
 | `rwm run <task> [pkg]` | Run a Rake task across packages. Packages without the task are skipped. |
-| `rwm test` | Shortcut for `rwm run test`. Also: `rwm spec`, `rwm build`. |
+| `rwm <task> [pkg]` | Any unknown command is a task shortcut: `rwm test` = `rwm run test`. |
 | `rwm run <task> --affected` | Run only on packages affected by current changes. |
 | `rwm check` | Validate conventions. |
 | `rwm list` | List all packages. |
