@@ -24,6 +24,9 @@ RWM manages Ruby monorepos with multiple apps and libraries. It builds a depende
 | `rwm list` | List all packages. |
 | `rwm info <name>` | Show package details. |
 | `rwm affected` | Show affected packages. |
+| `rwm cache clean [pkg]` | Clear cached task results. |
+
+Shell completions for Bash and Zsh are included — see [GUIDE.md](GUIDE.md) for setup instructions.
 
 See [GUIDE.md](GUIDE.md) for full usage documentation — dependencies, caching, affected detection, git hooks, design decisions, and more.
 

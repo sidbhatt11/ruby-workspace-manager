@@ -5,11 +5,16 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 ## [Unreleased]
 
 ### Added
+- Shell completions for Bash and Zsh (`completions/rwm.bash`, `completions/rwm.zsh`)
+- `--dry-run` flag for `rwm run` to preview which packages would be executed
+- `--base REF` flag for `rwm run --affected` and `rwm affected` to override the auto-detected base branch
 - `--verbose` flag and `RWM_DEBUG=1` env var for debug logging across all subsystems
 - `rwm cache clean [pkg]` command to clear cached task results
 - Ctrl+C signal trapping in the DAG scheduler with clean thread teardown
 
 ### Changed
+- App scaffolding (`rwm new app`) now uses `app/` instead of `lib/` for source code, with `require_paths = ["app"]` in the generated gemspec
+- Task cache now uses `git ls-files` for source file discovery instead of directory globbing, automatically respecting `.gitignore`
 - Task runner now uses try-and-handle approach: runs all packages with a Rakefile and gracefully skips those missing the requested task, instead of pre-checking with `rake -P`
 - `Package#rake_tasks` is memoized per instance, eliminating redundant `rake -P` subprocess calls
 

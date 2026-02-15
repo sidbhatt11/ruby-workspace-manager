@@ -18,6 +18,7 @@ This guide explains how RWM works, why it makes the choices it does, and how to 
 - [Git hooks](#git-hooks)
 - [Convention enforcement](#convention-enforcement)
 - [VSCode integration](#vscode-integration)
+- [Shell completions](#shell-completions)
 - [Command reference](#command-reference)
 - [Design philosophy](#design-philosophy)
 - [Resources](#resources)
@@ -203,12 +204,15 @@ my-project/                # git root = workspace root
 │   │   ├── Gemfile
 │   │   ├── auth.gemspec
 │   │   ├── Rakefile
-│   │   └── lib/auth.rb
+│   │   └── lib/auth.rb    # libs use lib/ for source code
 │   └── billing/
 │       └── ...
 ├── apps/
 │   ├── api/               # an application package
-│   │   └── ...
+│   │   ├── Gemfile
+│   │   ├── api.gemspec
+│   │   ├── Rakefile
+│   │   └── app/api.rb     # apps use app/ for source code
 │   └── web/
 │       └── ...
 ├── Gemfile                # root Gemfile (contains gem "ruby_workspace_manager")
@@ -236,9 +240,9 @@ Package names must start with a lowercase letter and contain only lowercase lett
 The scaffold includes:
 
 - **Gemfile** — Sources from rubygems.org, loads the gemspec, includes `rake`, `rspec`, and `ruby_workspace_manager` as development/test dependencies, and requires `rwm/gemfile` for the `rwm_lib` helper.
-- **Gemspec** — Minimal spec with package metadata.
+- **Gemspec** — Minimal spec with package metadata. Libraries use `require_paths = ["lib"]` and declare `spec.files`; applications use `require_paths = ["app"]` and omit `spec.files` (apps are not distributed as gems).
 - **Rakefile** — Uses `cacheable_task` from `rwm/rake` for the `:spec` task, plus an empty `:bootstrap` task for custom setup steps.
-- **lib/<name>.rb** — Module stub.
+- **lib/<name>.rb** (libraries) or **app/<name>.rb** (applications) — Module stub. Libraries keep source code in `lib/`, applications keep source code in `app/`.
 - **spec/spec_helper.rb** — Minimal RSpec configuration.
 
 ### Inspecting a package
@@ -360,7 +364,7 @@ rwm spec                    # shortcut for `rwm run spec`
 rwm build                   # shortcut for `rwm run build`
 ```
 
-RWM runs `bundle exec rake <task>` in each package directory. Before execution, it checks each package for the requested task (via `rake -P`). Packages that don't define the task are silently excluded — they won't fail or cause their dependents to be skipped.
+RWM runs `bundle exec rake <task>` in each package directory that has a Rakefile. Packages that don't define the requested task are detected automatically and silently skipped — they won't fail or cause their dependents to be skipped.
 
 ### How the DAG scheduler works
 
@@ -425,7 +429,7 @@ For each (package, task) pair, RWM:
 2. **Compares with stored hash** — If the hash matches the last successful run, and declared output files exist, the task is skipped.
 3. **Stores on success** — After a successful run, the hash is saved to `.rwm/cache/<package>-<task>`.
 
-Files in `tmp/`, `vendor/`, and `.bundle/` are excluded from the hash to avoid counting transient or third-party files as inputs.
+Source files are discovered via `git ls-files` (tracked files plus untracked-but-not-ignored files), so anything in `.gitignore` is automatically excluded from the hash.
 
 ### Transitive invalidation
 
@@ -443,7 +447,7 @@ This is exactly how redo's dependency chains work: a target that depends on anot
 
 ### Where RWM is coarser than redo
 
-True redo tracks **exactly which files a build step read** during execution (via filesystem-level interception). RWM hashes **every file in the package directory**. This means:
+True redo tracks **exactly which files a build step read** during execution (via filesystem-level interception). RWM hashes **every git-tracked file in the package directory**. This means:
 
 - If you edit a README inside `libs/auth/`, the `spec` cache for `auth` is invalidated — even though RSpec never reads that file.
 - If you add a comment to a non-required file, the cache busts.
@@ -556,7 +560,7 @@ This shows the base branch, the number of affected packages, and a list with mar
 
 ```
 Base branch: main
-3 affected package(s):
+Affected packages (3):
 
   auth (changed)
   billing (dependent)
@@ -648,6 +652,29 @@ This generates a `.code-workspace` file (named after the root directory) that co
 
 The file is opt-in: `rwm init --vscode` creates it initially. After that, `rwm bootstrap` and `rwm new` keep the folder list updated automatically. Existing `settings`, `extensions`, `launch`, and `tasks` keys in the workspace file are preserved.
 
+## Shell completions
+
+RWM ships with completion scripts for Bash and Zsh. They provide command, flag, and package name completion.
+
+### Bash
+
+Add to your `.bashrc` or `.bash_profile`:
+
+```bash
+source "$(gem contents ruby_workspace_manager | grep rwm.bash)"
+```
+
+### Zsh
+
+Add the completions directory to your `fpath` in `.zshrc` (before `compinit`):
+
+```zsh
+fpath=($(gem contents ruby_workspace_manager | grep completions/rwm.zsh | xargs dirname) $fpath)
+autoload -Uz compinit && compinit
+```
+
+Both scripts dynamically discover package names by scanning `libs/` and `apps/` in the current workspace, so `rwm run spec <TAB>` and `rwm info <TAB>` complete with your actual package names.
+
 ## Command reference
 
 | Command | Description |
@@ -663,7 +690,8 @@ The file is opt-in: `rwm init --vscode` creates it initially. After that, `rwm b
 | `rwm test` | Shortcut for `rwm run test`. |
 | `rwm spec` | Shortcut for `rwm run spec`. |
 | `rwm build` | Shortcut for `rwm run build`. |
-| `rwm affected [--committed]` | Show affected packages. |
+| `rwm affected [--committed] [--base REF]` | Show affected packages. |
+| `rwm cache clean [pkg]` | Clear cached task results for one or all packages. |
 | `rwm help` | Show available commands. |
 | `rwm version` | Show version. |
 
@@ -673,6 +701,8 @@ The file is opt-in: `rwm init --vscode` creates it initially. After that, `rwm b
 |------|-------------|
 | `--affected` | Only run on packages affected by current changes. |
 | `--committed` | With `--affected`, only consider committed changes (ignore staged/unstaged). |
+| `--base REF` | With `--affected`, compare against REF instead of auto-detected base branch. |
+| `--dry-run` | Show what would run without executing. |
 | `--no-cache` | Bypass task caching. Force all tasks to run. |
 | `--buffered` | Buffer output per-package and print on completion. |
 | `--concurrency N` | Limit parallel workers. Default: number of CPU cores. |

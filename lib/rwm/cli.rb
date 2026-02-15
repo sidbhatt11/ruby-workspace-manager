@@ -109,9 +109,12 @@ module Rwm
 
         Run options:
           --affected        Only run on affected packages
+          --committed       Only consider committed changes (with --affected)
           --base REF        Compare against REF instead of auto-detected base
           --dry-run         Show what would run without executing
           --no-cache        Bypass task-level caching
+          --buffered        Buffer output per-package
+          --concurrency N   Max parallel workers (default: CPU count)
 
         Options:
           -h, --help        Show this help
