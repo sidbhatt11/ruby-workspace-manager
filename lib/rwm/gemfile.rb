@@ -16,6 +16,12 @@ require "open3"
 require "set"
 
 module Rwm
+  @resolved_libs = Set.new
+
+  def self.resolved_libs
+    @resolved_libs
+  end
+
   module GemfileDsl
     def rwm_workspace_root
       @rwm_workspace_root ||= begin
@@ -32,6 +38,7 @@ module Rwm
       return if @rwm_resolved.include?(name)
 
       @rwm_resolved.add(name)
+      Rwm.resolved_libs.add(name)
 
       path = File.join(rwm_workspace_root, "libs", name)
       gem(name, **opts, path: path)

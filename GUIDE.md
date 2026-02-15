@@ -710,11 +710,9 @@ module Web
 end
 ```
 
-`Rwm.require_libs` finds all workspace libs in `libs/` that have a Gemfile and requires them. Libs not in the current bundle are silently skipped (via `rescue LoadError`). This replaces manually listing `require "core"` / `require "auth"` for each workspace lib.
+`Rwm.require_libs` requires exactly the libs that were declared via `rwm_lib` in the app's Gemfile (including transitive deps). It replaces manually listing `require "core"` / `require "auth"` for each workspace lib.
 
 With this setup, workspace libs are loaded as plain Ruby modules. Zeitwerk manages only the app's own code under `app/` — it never needs to know about workspace libraries.
-
-**Production dependency note:** Rails apps that use `Rwm.require_libs` need `ruby_workspace_manager` as a runtime dep (move it out of the development group in the app's Gemfile). The gem has zero runtime deps so this is lightweight.
 
 ### What doesn't work
 

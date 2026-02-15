@@ -58,7 +58,10 @@ RSpec.describe Rwm::GemfileDsl do
       allow(dsl).to receive(:gem)
     end
 
-    after { FileUtils.rm_rf(tmpdir) }
+    after do
+      FileUtils.rm_rf(tmpdir)
+      Rwm.resolved_libs.clear
+    end
 
     def write_lib_gemfile(name, content)
       lib_dir = File.join(root, "libs", name)
@@ -195,6 +198,21 @@ RSpec.describe Rwm::GemfileDsl do
 
       expect(dsl).to have_received(:gem).with("auth", path: File.join(root, "libs", "auth"))
       expect(dsl).not_to have_received(:gem).with("some_external", anything)
+    end
+
+    it "populates Rwm.resolved_libs with all resolved names" do
+      write_lib_gemfile("core", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "core", path: "../../libs/core"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+
+      expect(Rwm.resolved_libs).to contain_exactly("auth", "core")
     end
   end
 
