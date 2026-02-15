@@ -22,19 +22,23 @@ RSpec.describe Rwm::CLI do
       expect(result).to eq(1)
     end
 
-    it "exits with error when git is not available" do
+    it "returns error when git is not available" do
       cli = described_class.new(["list"])
       allow(cli).to receive(:system).with("which", "git", out: File::NULL, err: File::NULL).and_return(false)
 
-      expect { cli.run }.to output(/git is not installed/).to_stderr.and raise_error(SystemExit)
+      result = nil
+      expect { result = cli.run }.to output(/git is not installed/).to_stderr
+      expect(result).to eq(1)
     end
 
-    it "exits with error when bundle is not available" do
+    it "returns error when bundle is not available" do
       cli = described_class.new(["list"])
       allow(cli).to receive(:system).with("which", "git", out: File::NULL, err: File::NULL).and_return(true)
       allow(cli).to receive(:system).with("which", "bundle", out: File::NULL, err: File::NULL).and_return(false)
 
-      expect { cli.run }.to output(/bundle is not installed/).to_stderr.and raise_error(SystemExit)
+      result = nil
+      expect { result = cli.run }.to output(/bundle is not installed/).to_stderr
+      expect(result).to eq(1)
     end
 
     it "does not check tools for help" do

@@ -94,7 +94,7 @@ RSpec.describe Rwm::DependencyGraph do
   describe "#to_dot" do
     it "returns a valid DOT digraph" do
       graph = build_graph
-      dot = graph.to_dot("/tmp")
+      dot = graph.to_dot
 
       expect(dot).to include("digraph rwm {")
       expect(dot).to include("rankdir=LR;")
@@ -111,7 +111,7 @@ RSpec.describe Rwm::DependencyGraph do
   describe "#to_mermaid" do
     it "returns a valid Mermaid flowchart" do
       graph = build_graph
-      mermaid = graph.to_mermaid("/tmp")
+      mermaid = graph.to_mermaid
 
       expect(mermaid).to include("graph LR")
       expect(mermaid).to include('auth["auth (lib)"]')

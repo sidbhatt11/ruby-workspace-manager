@@ -42,10 +42,16 @@ module Rwm
         running.each_value { |t| t.kill rescue nil }
       end
 
-      until pending.empty? && running.empty?
+      done = false
+      until done
         break if @interrupted
 
         mutex.synchronize do
+          if pending.empty? && running.empty?
+            done = true
+            next
+          end
+
           ready = pending.select { |pkg| ready?(pkg, package_names, completed) }
 
           ready.each do |pkg|

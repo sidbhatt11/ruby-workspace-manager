@@ -20,9 +20,9 @@ module Rwm
 
         case @format
         when :dot
-          puts graph.to_dot(workspace.root)
+          puts graph.to_dot
         when :mermaid
-          puts graph.to_mermaid(workspace.root)
+          puts graph.to_mermaid
         end
 
         0

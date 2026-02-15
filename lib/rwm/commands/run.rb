@@ -31,12 +31,7 @@ module Rwm
         graph = DependencyGraph.load(workspace)
 
         packages = if package_name
-                     pkg = workspace.find_package(package_name)
-                     unless pkg
-                       $stderr.puts "Unknown package: #{package_name}"
-                       return 1
-                     end
-                     [pkg]
+                     [workspace.find_package(package_name)]
                    elsif @affected_only
                      detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only, base_branch: @base_branch)
                      affected = detector.affected_packages

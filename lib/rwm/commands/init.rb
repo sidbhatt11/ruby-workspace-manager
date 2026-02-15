@@ -44,9 +44,10 @@ module Rwm
         puts "Workspace initialized. Running bootstrap..."
         puts
 
-        # Call bootstrap as the last step
+        # Call bootstrap as the last step — return its exit code
         require "rwm/commands/bootstrap"
         Commands::Bootstrap.new([]).run
+        0
       end
 
       private

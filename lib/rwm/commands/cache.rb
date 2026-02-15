@@ -30,11 +30,7 @@ module Rwm
         package_name = @argv.shift
 
         if package_name
-          pkg = workspace.find_package(package_name)
-          unless pkg
-            $stderr.puts "Unknown package: #{package_name}"
-            return 1
-          end
+          workspace.find_package(package_name) # validates package exists
           TaskCache.clean(workspace, package_name: package_name)
           puts "Cleared cache for #{package_name}."
         else

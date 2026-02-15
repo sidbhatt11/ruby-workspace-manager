@@ -79,8 +79,7 @@ module Rwm
     def check_required_tools
       %w[git bundle].each do |tool|
         unless system("which", tool, out: File::NULL, err: File::NULL)
-          $stderr.puts "Error: #{tool} is not installed or not in PATH."
-          exit 1
+          raise Rwm::Error, "#{tool} is not installed or not in PATH."
         end
       end
     end

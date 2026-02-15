@@ -178,7 +178,7 @@ module Rwm
       graph
     end
 
-    def to_dot(workspace_root)
+    def to_dot
       lines = []
       lines << "digraph rwm {"
       lines << "  rankdir=LR;"
@@ -198,7 +198,7 @@ module Rwm
       lines.join("\n") + "\n"
     end
 
-    def to_mermaid(workspace_root)
+    def to_mermaid
       lines = []
       lines << "graph LR"
 
