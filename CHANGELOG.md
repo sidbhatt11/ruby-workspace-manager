@@ -4,13 +4,18 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-15
+
 ### Added
+- `rwm run` summary line after task execution showing passed/failed/skipped counts (e.g. `3 package(s): 2 passed, 1 skipped.`)
+- Verbose debug output lists individual package names for passed and skipped categories
 - Shell completions for Bash and Zsh (`completions/rwm.bash`, `completions/rwm.zsh`)
 - `--dry-run` flag for `rwm run` to preview which packages would be executed
 - `--base REF` flag for `rwm run --affected` and `rwm affected` to override the auto-detected base branch
 - `--verbose` flag and `RWM_DEBUG=1` env var for debug logging across all subsystems
 - `rwm cache clean [pkg]` command to clear cached task results
 - Ctrl+C signal trapping in the DAG scheduler with clean thread teardown
+- Command-level integration tests for all command files (list, info, check, graph, new, cache, affected, run, init)
 
 ### Changed
 - Any unrecognized command is now treated as a task name: `rwm test` = `rwm run test`, `rwm lint` = `rwm run lint` (replaces fixed `test`/`spec`/`build` shortcuts)
@@ -76,7 +81,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sidbhatt11/ruby-workspace-manager/releases/tag/v0.1.0
