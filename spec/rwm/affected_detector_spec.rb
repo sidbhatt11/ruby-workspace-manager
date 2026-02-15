@@ -40,6 +40,18 @@ RSpec.describe Rwm::AffectedDetector do
         expect(detector.base_branch).to eq("main")
       end
     end
+
+    it "uses provided base_branch and skips auto-detection" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph, base_branch: "develop")
+
+        expect(detector.base_branch).to eq("develop")
+      end
+    end
   end
 
   describe "#affected_packages" do

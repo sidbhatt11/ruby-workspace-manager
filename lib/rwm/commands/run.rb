@@ -12,6 +12,8 @@ module Rwm
         @no_cache = false
         @buffered = false
         @concurrency = nil
+        @dry_run = false
+        @base_branch = nil
         parse_options
       end
 
@@ -19,7 +21,7 @@ module Rwm
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--no-cache] [--buffered] [--concurrency N]"
+          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--base REF] [--dry-run] [--no-cache] [--buffered] [--concurrency N]"
           return 1
         end
 
@@ -36,7 +38,7 @@ module Rwm
                      end
                      [pkg]
                    elsif @affected_only
-                     detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only)
+                     detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only, base_branch: @base_branch)
                      affected = detector.affected_packages
                      if affected.empty?
                        puts "No affected packages. Nothing to run."
@@ -73,6 +75,12 @@ module Rwm
 
         if runnable.empty?
           puts "All packages cached. Nothing to run."
+          return 0
+        end
+
+        if @dry_run
+          puts "Dry run: would run `rake #{task}` on #{runnable.size} package(s):"
+          runnable.each { |pkg| puts "  #{pkg.name}" }
           return 0
         end
 
@@ -120,6 +128,12 @@ module Rwm
           end
           opts.on("--committed", "Only consider committed changes (with --affected)") do
             @committed_only = true
+          end
+          opts.on("--base REF", "Compare against REF instead of auto-detected base branch (with --affected)") do |ref|
+            @base_branch = ref
+          end
+          opts.on("--dry-run", "Show what would run without executing") do
+            @dry_run = true
           end
           opts.on("--no-cache", "Bypass task caching even for cacheable tasks") do
             @no_cache = true

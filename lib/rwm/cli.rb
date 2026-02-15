@@ -109,6 +109,8 @@ module Rwm
 
         Run options:
           --affected        Only run on affected packages
+          --base REF        Compare against REF instead of auto-detected base
+          --dry-run         Show what would run without executing
           --no-cache        Bypass task-level caching
 
         Options:

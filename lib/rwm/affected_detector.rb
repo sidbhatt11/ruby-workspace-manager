@@ -6,11 +6,11 @@ module Rwm
   class AffectedDetector
     attr_reader :workspace, :graph, :base_branch
 
-    def initialize(workspace, graph, committed_only: false)
+    def initialize(workspace, graph, committed_only: false, base_branch: nil)
       @workspace = workspace
       @graph = graph
       @committed_only = committed_only
-      @base_branch = detect_base_branch
+      @base_branch = base_branch || detect_base_branch
     end
 
     # Returns packages directly changed + their transitive dependents

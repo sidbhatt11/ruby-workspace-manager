@@ -116,13 +116,19 @@ module Rwm
     private
 
     def source_files(package)
-      Dir.glob(File.join(package.path, "**", "*"))
-         .select { |f| File.file?(f) }
-         .reject do |f|
-           rel = f.delete_prefix("#{package.path}/")
-           rel.start_with?("tmp/") || rel.start_with?("vendor/") || rel.start_with?(".bundle/")
-         end
-         .sort
+      # Tracked files + untracked-but-not-ignored files (null-delimited for safe filenames)
+      output, _, status = Open3.capture3(
+        "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+        chdir: package.path
+      )
+      return [] unless status.success?
+
+      files = output.split("\0")
+                    .reject(&:empty?)
+                    .sort
+                    .map { |f| File.join(package.path, f) }
+      Rwm.debug("source_files: #{package.name} → #{files.size} file(s)")
+      files
     end
 
     def cache_file(package, task)

@@ -64,6 +64,14 @@ RSpec.describe Rwm::CLI do
     it "includes cache clean in help text" do
       expect { described_class.run(["--help"]) }.to output(/cache clean/).to_stdout
     end
+
+    it "includes --dry-run in help text" do
+      expect { described_class.run(["--help"]) }.to output(/--dry-run/).to_stdout
+    end
+
+    it "includes --base in help text" do
+      expect { described_class.run(["--help"]) }.to output(/--base REF/).to_stdout
+    end
   end
 
   describe "--verbose flag" do
