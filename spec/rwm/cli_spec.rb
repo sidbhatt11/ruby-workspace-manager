@@ -4,35 +4,31 @@ require "spec_helper"
 
 RSpec.describe Rwm::CLI do
   describe ".run" do
-    it "prints version with --version" do
-      expect { described_class.run(["--version"]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
+    it "prints version via --version, -v, and version command" do
+      %w[--version -v version].each do |arg|
+        expect { described_class.run([arg]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
+      end
     end
 
-    it "prints version with -v" do
-      expect { described_class.run(["-v"]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
+    it "prints help via --help, -h, help command, and no arguments" do
+      [["--help"], ["-h"], ["help"], []].each do |args|
+        expect { described_class.run(args) }.to output(/Ruby Workspace Manager/).to_stdout
+      end
     end
 
-    it "prints help with --help" do
-      expect { described_class.run(["--help"]) }.to output(/Ruby Workspace Manager/).to_stdout
+    it "help text includes key commands and flags" do
+      output = StringIO.new
+      $stdout = output
+      described_class.run(["--help"])
+      $stdout = STDOUT
+      text = output.string
+
+      %w[--verbose --dry-run --base\ REF cache\ clean version].each do |expected|
+        expect(text).to include(expected), "expected help text to include #{expected.inspect}"
+      end
     end
 
-    it "prints help with -h" do
-      expect { described_class.run(["-h"]) }.to output(/Ruby Workspace Manager/).to_stdout
-    end
-
-    it "prints help with help command" do
-      expect { described_class.run(["help"]) }.to output(/Ruby Workspace Manager/).to_stdout
-    end
-
-    it "prints version with version command" do
-      expect { described_class.run(["version"]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
-    end
-
-    it "prints help with no arguments" do
-      expect { described_class.run([]) }.to output(/Ruby Workspace Manager/).to_stdout
-    end
-
-    it "treats unknown commands as task names via run" do
+    it "forwards unknown commands as tasks to run" do
       fake_cmd = double("cmd", run: 0)
       fake_class = double("class")
       allow(fake_class).to receive(:new).with(["lint"]).and_return(fake_cmd)
@@ -41,6 +37,20 @@ RSpec.describe Rwm::CLI do
       cli = described_class.new(["lint"])
       allow(cli).to receive(:check_required_tools)
       allow(cli).to receive(:require).with("rwm/commands/run")
+
+      result = cli.run
+      expect(result).to eq(0)
+    end
+
+    it "dispatches known commands" do
+      fake_cmd = double("cmd", run: 0)
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).with([]).and_return(fake_cmd)
+      stub_const("Rwm::Commands::List", fake_class)
+
+      cli = described_class.new(["list"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/list")
 
       result = cli.run
       expect(result).to eq(0)
@@ -65,65 +75,16 @@ RSpec.describe Rwm::CLI do
       expect(result).to eq(1)
     end
 
-    it "does not check tools for help" do
-      cli = described_class.new(["--help"])
-      expect(cli).not_to receive(:check_required_tools)
-      expect { cli.run }.to output(/Ruby Workspace Manager/).to_stdout
-    end
-
-    it "does not check tools for version" do
-      cli = described_class.new(["--version"])
-      expect(cli).not_to receive(:check_required_tools)
-      expect { cli.run }.to output(/rwm/).to_stdout
+    it "does not check tools for help or version" do
+      %w[--help --version].each do |flag|
+        cli = described_class.new([flag])
+        expect(cli).not_to receive(:check_required_tools)
+        expect { cli.run }.to output.to_stdout
+      end
     end
 
     it "registers the cache command" do
       expect(Rwm::CLI::COMMANDS).to include("cache" => "Commands::Cache")
-    end
-
-    it "includes --verbose in help text" do
-      expect { described_class.run(["--help"]) }.to output(/--verbose/).to_stdout
-    end
-
-    it "includes cache clean in help text" do
-      expect { described_class.run(["--help"]) }.to output(/cache clean/).to_stdout
-    end
-
-    it "includes --dry-run in help text" do
-      expect { described_class.run(["--help"]) }.to output(/--dry-run/).to_stdout
-    end
-
-    it "includes --base in help text" do
-      expect { described_class.run(["--help"]) }.to output(/--base REF/).to_stdout
-    end
-
-    it "forwards unknown commands as tasks to run" do
-      fake_cmd = double("cmd", run: 0)
-      fake_class = double("class")
-      allow(fake_class).to receive(:new).with(["test"]).and_return(fake_cmd)
-      stub_const("Rwm::Commands::Run", fake_class)
-
-      cli = described_class.new(["test"])
-      allow(cli).to receive(:check_required_tools)
-      allow(cli).to receive(:require).with("rwm/commands/run")
-      expect(fake_class).to have_received(:new).with(["test"]).at_most(:once)
-
-      result = cli.run
-      expect(result).to eq(0)
-    end
-
-    it "dispatches known commands" do
-      fake_cmd = double("cmd", run: 0)
-      fake_class = double("class")
-      allow(fake_class).to receive(:new).with([]).and_return(fake_cmd)
-      stub_const("Rwm::Commands::List", fake_class)
-
-      cli = described_class.new(["list"])
-      allow(cli).to receive(:check_required_tools)
-      allow(cli).to receive(:require).with("rwm/commands/list")
-
-      result = cli.run
-      expect(result).to eq(0)
     end
   end
 
