@@ -297,6 +297,25 @@ There is no `rwm_app` helper. Applications are leaf nodes in the dependency grap
 
 You can also use the raw `gem ... path:` syntax directly. Both work identically for dependency detection.
 
+### Transitive resolution
+
+When you call `rwm_lib "auth"`, RWM automatically resolves auth's own workspace dependencies. If auth's Gemfile contains `rwm_lib "core"` (or `gem "core", path: "../../libs/core"`), then `core` is added to your bundle automatically — you don't need to list it yourself.
+
+This works recursively: if `core` depends on `base`, that's resolved too. Diamond dependencies and cycles are handled safely (each lib is resolved at most once).
+
+```ruby
+# apps/web/Gemfile — only the direct dep is needed
+require "rwm/gemfile"
+
+rwm_lib "auth"    # core (auth's dep) is added automatically
+```
+
+Transitive resolution uses `Bundler::Dsl.eval_gemfile` — the same mechanism Bundler uses internally — to parse each lib's Gemfile. No regex, no custom parsing.
+
+**Note:** Only `rwm_lib` calls trigger transitive resolution. Raw `gem ... path:` declarations are not resolved transitively — use `rwm_lib` to get this behavior.
+
+Options passed to the direct `rwm_lib` call (like `group:` or `require:`) are **not** forwarded to transitive deps. Transitive deps are added with default options.
+
 ### Why only `path:` dependencies?
 
 Gems from rubygems.org or git sources are external — they live outside the workspace and their code is not something RWM manages. Only `path:` dependencies represent intra-workspace relationships. This is the same model Bundler uses for workspace gems and the same approach Nx uses with TypeScript project references.
@@ -646,21 +665,18 @@ Rails uses [Zeitwerk](https://github.com/fxn/zeitwerk) for autoloading, and Zeit
 
 Two things are needed to make Rails apps work smoothly in an RWM workspace:
 
-### 1. Declare all workspace dependencies explicitly
+### 1. Declare workspace dependencies with `rwm_lib`
 
-With path gems, Bundler does not automatically resolve transitive dependencies the way it does with published gems. If your Rails app depends on `auth`, and `auth` depends on `core`, you must declare both in the app's Gemfile:
+Use `rwm_lib` in your Rails app's Gemfile. Transitive workspace dependencies are resolved automatically — if `auth` depends on `core`, you only need to declare `auth`:
 
 ```ruby
 # apps/web/Gemfile
 require "rwm/gemfile"
 
-rwm_lib "core"    # transitive dep — auth needs it at require time
-rwm_lib "auth"
+rwm_lib "auth"    # core is added automatically (auth's transitive dep)
 ```
 
-This ensures Bundler adds every workspace lib to the load path. If you skip `core`, `require "core"` inside `auth.rb` will fail at runtime.
-
-A good rule of thumb: **list every workspace library your app touches at runtime**, even if it's only used indirectly. This is explicit but predictable — you always know exactly which workspace code a Rails app loads.
+See [Transitive resolution](#transitive-resolution) for details on how this works.
 
 ### 2. Require workspace libs before Zeitwerk loads
 
@@ -670,7 +686,7 @@ The standard Rails boot sequence is:
 2. `config/application.rb` requires Rails and defines the application class
 3. `config/environment.rb` calls `Rails.application.initialize!` (Zeitwerk starts here)
 
-Workspace libs must be required **after** `Bundler.setup` (so load paths exist) but **before** `Rails.application.initialize!` (so Zeitwerk doesn't intercept the calls). The right place is `config/application.rb`:
+Workspace libs must be required **after** `Bundler.setup` (so load paths exist) but **before** `Rails.application.initialize!` (so Zeitwerk doesn't intercept the calls). Use `Rwm.require_libs` in `config/application.rb`:
 
 ```ruby
 # apps/web/config/boot.rb
@@ -681,15 +697,10 @@ require "bundler/setup"
 ```ruby
 # apps/web/config/application.rb
 require_relative "boot"
-
+require "rwm/rails"
+Rwm.require_libs
 require "rails"
 require "action_controller/railtie"
-
-# Require workspace libs before Zeitwerk autoloading kicks in.
-# Bundler.setup (from boot.rb) has already added their load paths,
-# so plain `require` works here — before Zeitwerk overrides it.
-require "core"
-require "auth"
 
 module Web
   class Application < Rails::Application
@@ -699,13 +710,16 @@ module Web
 end
 ```
 
-With this setup, `Core` and `Auth` are loaded as plain Ruby modules. Zeitwerk manages only the app's own code under `app/` — it never needs to know about workspace libraries.
+`Rwm.require_libs` finds all workspace libs in `libs/` that have a Gemfile and requires them. Libs not in the current bundle are silently skipped (via `rescue LoadError`). This replaces manually listing `require "core"` / `require "auth"` for each workspace lib.
+
+With this setup, workspace libs are loaded as plain Ruby modules. Zeitwerk manages only the app's own code under `app/` — it never needs to know about workspace libraries.
+
+**Production dependency note:** Rails apps that use `Rwm.require_libs` need `ruby_workspace_manager` as a runtime dep (move it out of the development group in the app's Gemfile). The gem has zero runtime deps so this is lightweight.
 
 ### What doesn't work
 
-- **`require "auth"` inside a controller** — By the time controllers load, Zeitwerk is active and intercepts the call. Always require workspace libs in `config/application.rb` instead.
+- **`require "auth"` inside a controller** — By the time controllers load, Zeitwerk is active and intercepts the call. Always require workspace libs in `config/application.rb` (or use `Rwm.require_libs`) instead.
 - **Relying on Zeitwerk to autoload workspace modules** — Zeitwerk only manages directories registered as autoload paths. Workspace libs live outside the Rails app and are not registered. Don't try to add them to `config.autoload_paths` — they have their own internal structure that may not follow Zeitwerk's naming conventions.
-- **Omitting transitive workspace deps from the Gemfile** — Even if `auth.gemspec` declares `add_dependency "core"`, Bundler needs a source for `core`. With path gems, that source must be an explicit `rwm_lib "core"` in the consuming Gemfile.
 
 ### Example workspace layout
 

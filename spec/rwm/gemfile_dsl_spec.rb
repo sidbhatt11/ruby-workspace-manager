@@ -49,4 +49,153 @@ RSpec.describe Rwm::GemfileDsl do
     end
   end
 
+  describe "transitive resolution" do
+    let(:tmpdir) { Dir.mktmpdir("rwm-gemfile-dsl") }
+    let(:root) { tmpdir }
+
+    before do
+      allow(dsl).to receive(:rwm_workspace_root).and_return(root)
+      allow(dsl).to receive(:gem)
+    end
+
+    after { FileUtils.rm_rf(tmpdir) }
+
+    def write_lib_gemfile(name, content)
+      lib_dir = File.join(root, "libs", name)
+      FileUtils.mkdir_p(lib_dir)
+      File.write(File.join(lib_dir, "Gemfile"), content)
+    end
+
+    it "adds transitive deps from target Gemfile" do
+      write_lib_gemfile("core", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "core", path: "../../libs/core"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+
+      expect(dsl).to have_received(:gem).with("auth", path: File.join(root, "libs", "auth"))
+      expect(dsl).to have_received(:gem).with("core", path: File.join(root, "libs", "core"))
+    end
+
+    it "handles diamond deps without duplicates" do
+      write_lib_gemfile("core", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "core", path: "../../libs/core"
+      GEMFILE
+
+      write_lib_gemfile("billing", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "core", path: "../../libs/core"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+      dsl.rwm_lib("billing")
+
+      expect(dsl).to have_received(:gem).with("core", path: File.join(root, "libs", "core")).once
+    end
+
+    it "does not resolve same lib twice" do
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+      dsl.rwm_lib("auth")
+
+      expect(dsl).to have_received(:gem).with("auth", path: File.join(root, "libs", "auth")).once
+    end
+
+    it "skips commented-out rwm_lib lines in target Gemfile" do
+      write_lib_gemfile("core", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        # gem "core", path: "../../libs/core"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+
+      expect(dsl).to have_received(:gem).with("auth", path: File.join(root, "libs", "auth"))
+      expect(dsl).not_to have_received(:gem).with("core", anything)
+    end
+
+    it "resolves deep chains (A -> B -> C)" do
+      write_lib_gemfile("base", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("middle", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "base", path: "../../libs/base"
+      GEMFILE
+
+      write_lib_gemfile("top", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "middle", path: "../../libs/middle"
+      GEMFILE
+
+      dsl.rwm_lib("top")
+
+      expect(dsl).to have_received(:gem).with("top", path: File.join(root, "libs", "top"))
+      expect(dsl).to have_received(:gem).with("middle", path: File.join(root, "libs", "middle"))
+      expect(dsl).to have_received(:gem).with("base", path: File.join(root, "libs", "base"))
+    end
+
+    it "handles cycles without infinite recursion" do
+      write_lib_gemfile("alpha", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "beta", path: "../../libs/beta"
+      GEMFILE
+
+      write_lib_gemfile("beta", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "alpha", path: "../../libs/alpha"
+      GEMFILE
+
+      expect { dsl.rwm_lib("alpha") }.not_to raise_error
+
+      expect(dsl).to have_received(:gem).with("alpha", path: File.join(root, "libs", "alpha")).once
+      expect(dsl).to have_received(:gem).with("beta", path: File.join(root, "libs", "beta")).once
+    end
+
+    it "does not forward opts to transitive deps" do
+      write_lib_gemfile("core", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "core", path: "../../libs/core"
+      GEMFILE
+
+      dsl.rwm_lib("auth", group: :development)
+
+      expect(dsl).to have_received(:gem).with("auth", group: :development, path: File.join(root, "libs", "auth"))
+      expect(dsl).to have_received(:gem).with("core", path: File.join(root, "libs", "core"))
+    end
+
+    it "ignores non-workspace path deps in target Gemfile" do
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "some_external", path: "/opt/external/some_external"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+
+      expect(dsl).to have_received(:gem).with("auth", path: File.join(root, "libs", "auth"))
+      expect(dsl).not_to have_received(:gem).with("some_external", anything)
+    end
+  end
+
 end

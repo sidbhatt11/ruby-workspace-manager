@@ -4,6 +4,10 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Transitive dependency resolution in `rwm_lib` — declaring `rwm_lib "auth"` now automatically adds auth's workspace dependencies (e.g. `core`) to the bundle
+- `Rwm.require_libs` helper (`require "rwm/rails"`) — one-liner for Rails `config/application.rb` that requires all workspace libs before Zeitwerk loads
+
 ## [0.4.0] - 2026-02-15
 
 ### Added
