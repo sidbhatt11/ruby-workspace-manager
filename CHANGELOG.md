@@ -16,9 +16,11 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - App scaffolding (`rwm new app`) now uses `app/` instead of `lib/` for source code, with `require_paths = ["app"]` in the generated gemspec
 - Task cache now uses `git ls-files` for source file discovery instead of directory globbing, automatically respecting `.gitignore`
 - Task runner now uses try-and-handle approach: runs all packages with a Rakefile and gracefully skips those missing the requested task, instead of pre-checking with `rake -P`
-- `Package#rake_tasks` is memoized per instance, eliminating redundant `rake -P` subprocess calls
+- Removed dead code: `Package#rake_tasks`, `Package#has_rake_task?`, `Package#gemspec_path`, `Package#to_s`, `Workspace#libs_dir`, `Workspace#apps_dir`, `DependencyGraph.load_from_file`
 
 ### Fixed
+- `CycleError` raised with wrong argument format from `topological_order` and `execution_levels`, causing `NoMethodError` on cyclic dependency graphs
+- Race condition in DAG scheduler where `pending.empty?` was checked outside the mutex
 - `gem build` warning about duplicate `homepage_uri` / `source_code_uri` metadata
 
 ## [0.3.0] - 2025-05-01

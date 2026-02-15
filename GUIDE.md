@@ -711,7 +711,7 @@ Both scripts dynamically discover package names by scanning `libs/` and `apps/` 
 
 ### Zero runtime dependencies
 
-RWM depends only on Ruby's standard library and Bundler (which ships with Ruby). There is no Thor for CLI parsing — `OptionParser` from stdlib handles it. There is no custom graph library — `TSort` from stdlib implements Tarjan's algorithm. This means installing RWM adds nothing to your dependency tree beyond the gem itself.
+RWM depends only on Ruby's standard library and Bundler (which ships with Ruby). There is no Thor for CLI parsing — RWM does straightforward argument matching on `ARGV`. There is no custom graph library — `TSort` from stdlib implements Tarjan's algorithm. This means installing RWM adds nothing to your dependency tree beyond the gem itself.
 
 ### No configuration file
 
