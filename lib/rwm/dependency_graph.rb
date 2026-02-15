@@ -93,13 +93,16 @@ module Rwm
     def self.load(workspace)
       path = workspace.graph_path
       unless File.exist?(path)
+        Rwm.debug("graph: no cached graph found, building from scratch")
         return build_and_save(workspace)
       end
 
       if stale?(path, workspace.packages)
+        Rwm.debug("graph: cached graph is stale, rebuilding")
         return build_and_save(workspace)
       end
 
+      Rwm.debug("graph: loading from cache at #{path}")
       data = JSON.parse(File.read(path))
       graph = new
 

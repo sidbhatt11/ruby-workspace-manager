@@ -52,5 +52,40 @@ RSpec.describe Rwm::CLI do
     it "recognizes task shortcuts" do
       expect(Rwm::CLI::TASK_SHORTCUTS).to include("test", "spec", "build")
     end
+
+    it "registers the cache command" do
+      expect(Rwm::CLI::COMMANDS).to include("cache" => "Commands::Cache")
+    end
+
+    it "includes --verbose in help text" do
+      expect { described_class.run(["--help"]) }.to output(/--verbose/).to_stdout
+    end
+
+    it "includes cache clean in help text" do
+      expect { described_class.run(["--help"]) }.to output(/cache clean/).to_stdout
+    end
+  end
+
+  describe "--verbose flag" do
+    after { Rwm.verbose = false }
+
+    it "sets Rwm.verbose when --verbose is passed" do
+      cli = described_class.new(["--verbose", "--help"])
+      expect { cli.run }.to output.to_stdout
+      expect(Rwm.verbose?).to be true
+    end
+
+    it "sets Rwm.verbose when RWM_DEBUG=1" do
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("RWM_DEBUG").and_return("1")
+      cli = described_class.new(["--help"])
+      expect { cli.run }.to output.to_stdout
+      expect(Rwm.verbose?).to be true
+    end
+
+    it "strips --verbose from argv before command dispatch" do
+      cli = described_class.new(["--verbose", "--version"])
+      expect { cli.run }.to output(/rwm #{Rwm::VERSION}/).to_stdout
+    end
   end
 end

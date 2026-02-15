@@ -7,6 +7,17 @@ require "open3"
 
 module Rwm
   class TaskCache
+    def self.clean(workspace, package_name: nil)
+      cache_dir = File.join(workspace.root, ".rwm", "cache")
+      return unless Dir.exist?(cache_dir)
+
+      if package_name
+        Dir.glob(File.join(cache_dir, "#{package_name}-*")).each { |f| File.delete(f) }
+      else
+        Dir.glob(File.join(cache_dir, "*")).each { |f| File.delete(f) }
+      end
+    end
+
     def initialize(workspace, graph)
       @workspace = workspace
       @graph = graph
@@ -25,20 +36,33 @@ module Rwm
     # Also verifies declared outputs exist (if any).
     def cached?(package, task)
       stored = read_stored_hash(package, task)
-      return false unless stored
-      return false unless stored == content_hash(package)
+      unless stored
+        Rwm.debug("cache miss: #{package.name}:#{task} (no stored hash)")
+        return false
+      end
+
+      current = content_hash(package)
+      unless stored == current
+        Rwm.debug("cache miss: #{package.name}:#{task} (hash changed)")
+        return false
+      end
 
       # If outputs are declared, they must exist
       decl = cache_declarations(package)[task]
       if decl && decl["output"]
-        return false unless outputs_exist?(package, decl["output"])
+        unless outputs_exist?(package, decl["output"])
+          Rwm.debug("cache miss: #{package.name}:#{task} (outputs missing)")
+          return false
+        end
       end
 
+      Rwm.debug("cache hit: #{package.name}:#{task}")
       true
     end
 
     # Store the current content hash after a successful task run
     def store(package, task)
+      Rwm.debug("cache store: #{package.name}:#{task}")
       FileUtils.mkdir_p(@cache_dir)
       path = cache_file(package, task)
       File.write(path, content_hash(package))
@@ -78,6 +102,7 @@ module Rwm
     def cache_declarations(package)
       return @cache_declarations[package.name] if @cache_declarations.key?(package.name)
 
+      Rwm.debug("cache declarations: discovering for #{package.name}")
       output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
       @cache_declarations[package.name] = if status.success? && !output.strip.empty?
                                              JSON.parse(output.strip)

@@ -68,20 +68,25 @@ module Rwm
       files = Set.new
 
       # 1. Committed changes: base branch vs HEAD
+      Rwm.debug("affected: git diff --name-only #{base_branch}...HEAD")
       committed, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only", "#{base_branch}...HEAD")
       committed.lines.each { |l| files << l.chomp } if status.success?
 
       unless @committed_only
         # 2. Staged changes (not yet committed)
+        Rwm.debug("affected: git diff --name-only --cached")
         staged, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only", "--cached")
         staged.lines.each { |l| files << l.chomp } if status.success?
 
         # 3. Unstaged working directory changes
+        Rwm.debug("affected: git diff --name-only")
         unstaged, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only")
         unstaged.lines.each { |l| files << l.chomp } if status.success?
       end
 
-      files.reject(&:empty?).to_a
+      result = files.reject(&:empty?).to_a
+      Rwm.debug("affected: #{result.size} changed file(s) detected")
+      result
     end
 
     def map_files_to_packages(files)

@@ -13,7 +13,8 @@ module Rwm
       "check"     => "Commands::Check",
       "list"      => "Commands::List",
       "run"       => "Commands::Run",
-      "affected"  => "Commands::Affected"
+      "affected"  => "Commands::Affected",
+      "cache"     => "Commands::Cache"
     }.freeze
 
     # Shortcuts that expand to `run <task>`
@@ -28,6 +29,8 @@ module Rwm
     end
 
     def run
+      parse_global_flags
+
       command_name = @argv.shift
 
       if command_name.nil? || %w[-h --help help].include?(command_name)
@@ -66,6 +69,13 @@ module Rwm
 
     private
 
+    def parse_global_flags
+      Rwm.verbose = true if ENV["RWM_DEBUG"] == "1"
+      if @argv.delete("--verbose")
+        Rwm.verbose = true
+      end
+    end
+
     def check_required_tools
       %w[git bundle].each do |tool|
         unless system("which", tool, out: File::NULL, err: File::NULL)
@@ -94,6 +104,7 @@ module Rwm
           test              Shortcut for `rwm run test`
           affected          Show packages affected by current changes
           list              List all packages in the workspace
+          cache clean [pkg] Clear cached task results
           help              Show this help
 
         Run options:
@@ -103,6 +114,7 @@ module Rwm
         Options:
           -h, --help        Show this help
           -v, --version     Show version
+          --verbose         Enable debug logging (or set RWM_DEBUG=1)
       HELP
     end
   end

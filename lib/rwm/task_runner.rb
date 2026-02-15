@@ -5,7 +5,9 @@ require "etc"
 
 module Rwm
   class TaskRunner
-    Result = Struct.new(:package_name, :task, :success, :output, keyword_init: true)
+    Result = Struct.new(:package_name, :task, :success, :output, :skipped, keyword_init: true)
+
+    NO_TASK_PATTERN = /Don't know how to build task/
 
     attr_reader :results
 
@@ -28,16 +30,27 @@ module Rwm
       completed = Set.new
       skipped = Set.new
       running = {}
+      @interrupted = false
 
       mutex = Mutex.new
       condition = ConditionVariable.new
 
+      previous_trap = Signal.trap("INT") do
+        @interrupted = true
+        # Cannot use mutex inside trap context — just kill threads directly.
+        # Thread#kill is safe to call from trap context.
+        running.each_value { |t| t.kill rescue nil }
+      end
+
       until pending.empty? && running.empty?
+        break if @interrupted
+
         mutex.synchronize do
           ready = pending.select { |pkg| ready?(pkg, package_names, completed) }
 
           ready.each do |pkg|
             break if running.size >= @concurrency
+            break if @interrupted
 
             pending.delete(pkg)
             running[pkg.name] = Thread.new do
@@ -73,7 +86,11 @@ module Rwm
         end
       end
 
+      raise Interrupt, "Interrupted by Ctrl+C" if @interrupted
+
       @results
+    ensure
+      Signal.trap("INT", previous_trap || "DEFAULT")
     end
 
     # Run a rake task in each package
@@ -105,9 +122,22 @@ module Rwm
     def run_single(pkg, &command_proc)
       cmd = command_proc.call(pkg)
       prefix = "[#{pkg.name}]"
+      Rwm.debug("running: #{cmd.join(' ')} in #{pkg.path}")
 
       stdout, stderr, status = Open3.capture3(*cmd, chdir: pkg.path)
       output = format_output(prefix, stdout, stderr)
+
+      # Detect "task not found" and treat as skipped, not failed
+      if !status.success? && stderr.match?(NO_TASK_PATTERN)
+        Rwm.debug("#{pkg.name}: task not found, skipping")
+        return Result.new(
+          package_name: pkg.name,
+          task: cmd.join(" "),
+          success: true,
+          output: "",
+          skipped: true
+        )
+      end
 
       if @buffered
         print_buffered_output(pkg.name, output, status.success?)

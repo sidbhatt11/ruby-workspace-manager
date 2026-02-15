@@ -273,6 +273,58 @@ RSpec.describe Rwm::TaskRunner do
     end
   end
 
+  describe "interrupt handling" do
+    it "sets @interrupted flag when SIGINT is received" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        runner = described_class.new(graph, packages: workspace.packages, concurrency: 1)
+
+        # Send SIGINT after a brief delay to interrupt the runner
+        Thread.new do
+          sleep 0.2
+          Process.kill("INT", Process.pid)
+        end
+
+        expect {
+          runner.run_command { |_pkg| ["ruby", "-e", "sleep 2"] }
+        }.to raise_error(Interrupt)
+      end
+    end
+
+    it "restores the previous signal handler after run" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        # Capture handler before run
+        handler_before = Signal.trap("INT", "DEFAULT")
+        Signal.trap("INT", handler_before)
+
+        runner = described_class.new(graph, packages: workspace.packages)
+        $stdout = StringIO.new
+        runner.run_command { |_pkg| ["ruby", "-e", "puts 'done'"] }
+        $stdout = STDOUT
+
+        # Capture handler after run
+        handler_after = Signal.trap("INT", "DEFAULT")
+        Signal.trap("INT", handler_after)
+
+        # Handler should be the same as before the run
+        expect(handler_after).to eq(handler_before)
+      end
+    end
+  end
+
   describe "#run_task" do
     it "runs a rake task in each package" do
       Dir.mktmpdir do |dir|

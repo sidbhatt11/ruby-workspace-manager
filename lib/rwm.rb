@@ -4,6 +4,20 @@ require_relative "rwm/version"
 require_relative "rwm/errors"
 
 module Rwm
+  @verbose = false
+
+  def self.verbose?
+    @verbose
+  end
+
+  def self.verbose=(value)
+    @verbose = value
+  end
+
+  def self.debug(msg)
+    $stderr.puts "[rwm debug] #{msg}" if @verbose
+  end
+
   autoload :Workspace,         "rwm/workspace"
   autoload :Package,           "rwm/package"
   autoload :GemfileParser,     "rwm/gemfile_parser"

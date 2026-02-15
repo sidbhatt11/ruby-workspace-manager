@@ -53,12 +53,14 @@ module Rwm
           return 0
         end
 
-        # Filter to packages that have the requested rake task
-        runnable = packages.select { |pkg| pkg.has_rake_task?(task) }
+        # Filter to packages with a Rakefile (skip those without one entirely)
+        runnable = packages.select(&:has_rakefile?)
         if runnable.empty?
-          puts "No packages with a `#{task}` rake task found."
+          puts "No packages with a Rakefile found."
           return 0
         end
+
+        Rwm.debug("run: #{runnable.size} package(s) with Rakefiles")
 
         # Auto-detect cacheable tasks unless --no-cache
         cache = TaskCache.new(workspace, graph) unless @no_cache
@@ -86,18 +88,23 @@ module Rwm
         if cache
           runner.results.each do |result|
             next unless result.success
+            next if result.skipped
 
             pkg = workspace.find_package(result.package_name)
             cache.store(pkg, task) if cache.cacheable?(pkg, task)
           end
         end
 
+        skipped = runner.results.select(&:skipped)
+        skipped.each { |r| Rwm.debug("skipped (no task): #{r.package_name}") }
+
+        actual_results = runner.results.reject(&:skipped)
         puts
         if runner.success?
           puts "All packages passed."
           0
         else
-          failed = runner.failed_results
+          failed = actual_results.reject(&:success)
           $stderr.puts "#{failed.size} package(s) failed:"
           failed.each { |r| $stderr.puts "  - #{r.package_name}" }
           1
