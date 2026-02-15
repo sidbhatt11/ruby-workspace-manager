@@ -4,6 +4,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-15
+
 ### Added
 - Transitive dependency resolution in `rwm_lib` — declaring `rwm_lib "auth"` now automatically adds auth's workspace dependencies (e.g. `core`) to the bundle
 - `Rwm.require_libs` helper (`require "rwm/rails"`) — one-liner for Rails `config/application.rb` that requires all workspace libs before Zeitwerk loads
@@ -85,7 +87,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.1.0...v0.2.0

@@ -13,6 +13,6 @@ require "rwm/gemfile"
 
 module Rwm
   def self.require_libs
-    resolved_libs.each { |name| require name }
+    self.resolved_libs.each { |name| require name }
   end
 end
