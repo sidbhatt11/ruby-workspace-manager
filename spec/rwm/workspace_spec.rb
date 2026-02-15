@@ -56,6 +56,28 @@ RSpec.describe Rwm::Workspace do
       end
     end
 
+    it "skips package dirs that don't exist" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { api: { type: :app } })
+        # Remove libs/ so that PACKAGE_DIRS iteration skips it
+        FileUtils.rm_rf(File.join(dir, "libs"))
+
+        workspace = described_class.find(dir)
+        expect(workspace.packages.map(&:name)).to eq(["api"])
+      end
+    end
+
+    it "skips non-directory entries in package dirs" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        # Create a file (not directory) inside libs/
+        File.write(File.join(dir, "libs", "README.md"), "# Libs")
+
+        workspace = described_class.find(dir)
+        expect(workspace.packages.map(&:name)).to eq(["auth"])
+      end
+    end
+
     it "sets correct types for libs and apps" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: {

@@ -223,6 +223,49 @@ RSpec.describe Rwm::TaskRunner do
     end
   end
 
+  describe "task not found handling" do
+    it "treats missing rake task as skipped, not failed" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib, rakefile_content: "# no tasks defined" }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        runner = described_class.new(graph, packages: workspace.packages)
+        runner.run_task("nonexistent_task")
+
+        expect(runner.success?).to be true
+        result = runner.results.first
+        expect(result.skipped).to be true
+      end
+    end
+  end
+
+  describe "subset package execution" do
+    it "skips dependency checks for packages not in run set" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        # Only run billing (not auth), so auth dep is outside run set
+        billing = workspace.find_package("billing")
+        runner = described_class.new(graph, packages: [billing])
+        runner.run_command { |_pkg| ["ruby", "-e", "puts 'done'"] }
+
+        expect(runner.success?).to be true
+        expect(runner.results.size).to eq(1)
+        expect(runner.results.first.package_name).to eq("billing")
+      end
+    end
+  end
+
   describe "buffered output" do
     it "prints output with header when buffered: true" do
       Dir.mktmpdir do |dir|
@@ -243,6 +286,28 @@ RSpec.describe Rwm::TaskRunner do
 
         expect(output.string).to include("==> [auth]")
         expect(output.string).to include("hello")
+        expect(runner.success?).to be true
+      end
+    end
+
+    it "handles empty output in buffered mode" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        output = StringIO.new
+        $stdout = output
+
+        runner = described_class.new(graph, packages: workspace.packages, buffered: true)
+        runner.run_command { |_pkg| ["ruby", "-e", ""] }
+
+        $stdout = STDOUT
+
+        expect(output.string).to include("==> [auth]")
         expect(runner.success?).to be true
       end
     end

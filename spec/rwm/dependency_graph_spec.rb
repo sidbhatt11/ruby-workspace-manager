@@ -18,6 +18,19 @@ RSpec.describe Rwm::DependencyGraph do
     graph
   end
 
+  describe "#add_edge" do
+    it "ignores duplicate edges" do
+      graph = described_class.new
+      graph.add_package(auth)
+      graph.add_package(billing)
+      graph.add_edge("billing", "auth")
+      graph.add_edge("billing", "auth") # duplicate
+
+      expect(graph.dependencies("billing")).to eq(["auth"])
+      expect(graph.direct_dependents("auth")).to eq(["billing"])
+    end
+  end
+
   describe "#dependencies" do
     it "returns direct dependencies" do
       graph = build_graph
@@ -57,6 +70,18 @@ RSpec.describe Rwm::DependencyGraph do
       expect(order.index("auth")).to be < order.index("api")
       expect(order.index("billing")).to be < order.index("api")
     end
+
+    it "raises CycleError for cyclic dependencies" do
+      graph = described_class.new
+      a = Rwm::Package.new(name: "a", path: "/tmp/libs/a", type: :lib)
+      b = Rwm::Package.new(name: "b", path: "/tmp/libs/b", type: :lib)
+      graph.add_package(a)
+      graph.add_package(b)
+      graph.add_edge("a", "b")
+      graph.add_edge("b", "a")
+
+      expect { graph.topological_order }.to raise_error(Rwm::CycleError)
+    end
   end
 
   describe "#execution_levels" do
@@ -88,6 +113,18 @@ RSpec.describe Rwm::DependencyGraph do
     it "returns empty for empty graph" do
       graph = described_class.new
       expect(graph.execution_levels).to be_empty
+    end
+
+    it "raises CycleError for cyclic dependencies" do
+      graph = described_class.new
+      a = Rwm::Package.new(name: "a", path: "/tmp/libs/a", type: :lib)
+      b = Rwm::Package.new(name: "b", path: "/tmp/libs/b", type: :lib)
+      graph.add_package(a)
+      graph.add_package(b)
+      graph.add_edge("a", "b")
+      graph.add_edge("b", "a")
+
+      expect { graph.execution_levels }.to raise_error(Rwm::CycleError)
     end
   end
 
@@ -210,6 +247,27 @@ RSpec.describe Rwm::DependencyGraph do
 
         loaded = described_class.load(workspace)
         expect(loaded.packages.keys).to contain_exactly("auth", "billing")
+      end
+    end
+  end
+
+  describe ".load with missing edges key" do
+    it "handles JSON without edges key" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+
+        # Write a graph.json that has no "edges" key
+        graph_path = workspace.graph_path
+        FileUtils.mkdir_p(File.dirname(graph_path))
+        File.write(graph_path, JSON.generate({
+          "version" => 1,
+          "packages" => { "auth" => { "name" => "auth", "type" => "lib", "path" => "libs/auth" } }
+        }))
+
+        loaded = described_class.load(workspace)
+        expect(loaded.packages.keys).to eq(["auth"])
+        expect(loaded.dependencies("auth")).to be_empty
       end
     end
   end

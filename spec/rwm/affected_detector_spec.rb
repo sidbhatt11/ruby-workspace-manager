@@ -52,6 +52,96 @@ RSpec.describe Rwm::AffectedDetector do
         expect(detector.base_branch).to eq("develop")
       end
     end
+
+    it "falls back to master when symbolic-ref fails and master exists" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+        # Rename main to master
+        system("git", "-C", dir, "branch", "-m", "main", "master", out: File::NULL, err: File::NULL)
+        system("git", "-C", dir, "checkout", "-b", "feature", out: File::NULL, err: File::NULL)
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        expect(detector.base_branch).to eq("master")
+      end
+    end
+
+    it "defaults to main when all detection methods fail" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        fail_status = instance_double(Process::Status, success?: false)
+        allow(Open3).to receive(:capture3).and_call_original
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "symbolic-ref", "refs/remotes/origin/HEAD")
+          .and_return(["", "", fail_status])
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "branch", "--list", "main", "master")
+          .and_return(["", "", fail_status])
+
+        detector = described_class.new(workspace, graph)
+        expect(detector.base_branch).to eq("main")
+      end
+    end
+
+    it "extracts branch from symbolic-ref when available" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        ok_status = instance_double(Process::Status, success?: true)
+        allow(Open3).to receive(:capture3).and_call_original
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "symbolic-ref", "refs/remotes/origin/HEAD")
+          .and_return(["refs/remotes/origin/develop\n", "", ok_status])
+
+        detector = described_class.new(workspace, graph)
+        expect(detector.base_branch).to eq("develop")
+      end
+    end
+
+    it "falls through when symbolic-ref succeeds but returns empty" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        ok_status = instance_double(Process::Status, success?: true)
+        allow(Open3).to receive(:capture3).and_call_original
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "symbolic-ref", "refs/remotes/origin/HEAD")
+          .and_return(["\n", "", ok_status])
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "branch", "--list", "main", "master")
+          .and_return(["  main\n", "", ok_status])
+
+        detector = described_class.new(workspace, graph)
+        expect(detector.base_branch).to eq("main")
+      end
+    end
+
+    it "falls back to main when branch --list returns neither main nor master" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        fail_status = instance_double(Process::Status, success?: false)
+        ok_status = instance_double(Process::Status, success?: true)
+        allow(Open3).to receive(:capture3).and_call_original
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "symbolic-ref", "refs/remotes/origin/HEAD")
+          .and_return(["", "", fail_status])
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "branch", "--list", "main", "master")
+          .and_return(["  develop\n", "", ok_status])
+
+        detector = described_class.new(workspace, graph)
+        expect(detector.base_branch).to eq("main")
+      end
+    end
   end
 
   describe "#affected_packages" do
@@ -180,6 +270,33 @@ RSpec.describe Rwm::AffectedDetector do
 
         affected = detector.affected_packages
         expect(affected).to be_empty
+      end
+    end
+  end
+
+  describe "git diff failure handling" do
+    it "handles failed git diff commands gracefully" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: { auth: { type: :lib } },
+          changed_files: {}
+        )
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        fail_status = instance_double(Process::Status, success?: false)
+        allow(Open3).to receive(:capture3).and_call_original
+        # Stub all three diff commands to fail
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only", anything)
+          .and_return(["", "error", fail_status])
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only", "--cached")
+          .and_return(["", "error", fail_status])
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only")
+          .and_return(["", "error", fail_status])
+
+        detector = described_class.new(workspace, graph)
+        expect(detector.affected_packages).to be_empty
       end
     end
   end

@@ -61,7 +61,7 @@ module Rwm
     def topological_order
       tsort
     rescue TSort::Cyclic => e
-      raise CycleError, [e.message]
+      raise CycleError, [[e.message]]
     end
 
     # Group packages into execution levels — packages at the same level
@@ -79,7 +79,7 @@ module Rwm
           dependencies(name).all? { |dep| placed.include?(dep) }
         end
 
-        raise CycleError, ["Unable to resolve execution levels — possible cycle"] if level.empty?
+        raise CycleError, [["Unable to resolve execution levels — possible cycle"]] if level.empty?
 
         levels << level.sort
         remaining -= level

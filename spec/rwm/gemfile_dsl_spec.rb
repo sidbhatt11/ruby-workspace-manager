@@ -13,6 +13,14 @@ RSpec.describe Rwm::GemfileDsl do
       expect(root).not_to be_empty
       expect(File.directory?(File.join(root, ".git"))).to be true
     end
+
+    it "raises when not inside a git repository" do
+      fresh_dsl = Bundler::Dsl.new
+      allow(Open3).to receive(:capture3).with("git", "rev-parse", "--show-toplevel")
+        .and_return(["", "", instance_double(Process::Status, success?: false)])
+
+      expect { fresh_dsl.rwm_workspace_root }.to raise_error(RuntimeError, /not inside a git repository/)
+    end
   end
 
   describe "#rwm_lib" do

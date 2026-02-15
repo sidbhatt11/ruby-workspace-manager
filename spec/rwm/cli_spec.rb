@@ -8,8 +8,24 @@ RSpec.describe Rwm::CLI do
       expect { described_class.run(["--version"]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
     end
 
+    it "prints version with -v" do
+      expect { described_class.run(["-v"]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
+    end
+
     it "prints help with --help" do
       expect { described_class.run(["--help"]) }.to output(/Ruby Workspace Manager/).to_stdout
+    end
+
+    it "prints help with -h" do
+      expect { described_class.run(["-h"]) }.to output(/Ruby Workspace Manager/).to_stdout
+    end
+
+    it "prints help with help command" do
+      expect { described_class.run(["help"]) }.to output(/Ruby Workspace Manager/).to_stdout
+    end
+
+    it "prints version with version command" do
+      expect { described_class.run(["version"]) }.to output(/rwm #{Rwm::VERSION}/).to_stdout
     end
 
     it "prints help with no arguments" do
@@ -75,6 +91,35 @@ RSpec.describe Rwm::CLI do
 
     it "includes --base in help text" do
       expect { described_class.run(["--help"]) }.to output(/--base REF/).to_stdout
+    end
+
+    it "expands task shortcuts to run command" do
+      fake_cmd = double("cmd", run: 0)
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).with(["test"]).and_return(fake_cmd)
+      stub_const("Rwm::Commands::Run", fake_class)
+
+      cli = described_class.new(["test"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/run")
+      expect(fake_class).to have_received(:new).with(["test"]).at_most(:once)
+
+      result = cli.run
+      expect(result).to eq(0)
+    end
+
+    it "dispatches known commands" do
+      fake_cmd = double("cmd", run: 0)
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).with([]).and_return(fake_cmd)
+      stub_const("Rwm::Commands::List", fake_class)
+
+      cli = described_class.new(["list"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/list")
+
+      result = cli.run
+      expect(result).to eq(0)
     end
   end
 

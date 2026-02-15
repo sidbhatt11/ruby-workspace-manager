@@ -33,6 +33,28 @@ RSpec.describe Rwm::GemfileParser do
       end
     end
 
+    it "skips non-path source dependencies" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        # Add a rubygems (non-path) dependency
+        gemfile_path = File.join(dir, "libs", "auth", "Gemfile")
+        File.write(gemfile_path, <<~GEMFILE)
+          source "https://rubygems.org"
+          gemspec
+          gem "rake"
+        GEMFILE
+
+        workspace = Rwm::Workspace.find(dir)
+        auth = workspace.find_package("auth")
+
+        deps = described_class.parse(auth.gemfile_path, workspace.packages)
+        expect(deps).to be_empty
+      end
+    end
+
     it "ignores path deps that don't match known packages" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: {

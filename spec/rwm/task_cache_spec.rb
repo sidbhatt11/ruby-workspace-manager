@@ -299,4 +299,97 @@ RSpec.describe Rwm::TaskCache do
       end
     end
   end
+
+  describe "#cache_declarations memoization" do
+    it "returns memoized result on second call" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        allow(Open3).to receive(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .and_return(['{"spec": {}}', "", instance_double(Process::Status, success?: true)])
+
+        result1 = cache.cache_declarations(pkg)
+        result2 = cache.cache_declarations(pkg)
+
+        expect(result1).to eq(result2)
+        expect(Open3).to have_received(:capture3).once
+      end
+    end
+  end
+
+  describe "#content_hash with git ls-files failure" do
+    it "produces a hash even when git ls-files fails" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        fail_status = instance_double(Process::Status, success?: false)
+        allow(Open3).to receive(:capture3)
+          .with("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", chdir: pkg.path)
+          .and_return(["", "error", fail_status])
+
+        # Should still produce a hash (just of zero files + deps)
+        hash = cache.content_hash(pkg)
+        expect(hash).to match(/\A[0-9a-f]{64}\z/)
+      end
+    end
+  end
+
+  describe "#cache_declarations" do
+    it "returns empty hash when rake command fails" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        allow(Open3).to receive(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .and_return(["", "error", instance_double(Process::Status, success?: false)])
+
+        expect(cache.cache_declarations(pkg)).to eq({})
+      end
+    end
+
+    it "returns empty hash when output is invalid JSON" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        allow(Open3).to receive(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .and_return(["not json{", "", instance_double(Process::Status, success?: true)])
+
+        expect(cache.cache_declarations(pkg)).to eq({})
+      end
+    end
+
+    it "returns empty hash when output is empty" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        allow(Open3).to receive(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .and_return(["", "", instance_double(Process::Status, success?: true)])
+
+        expect(cache.cache_declarations(pkg)).to eq({})
+      end
+    end
+  end
 end

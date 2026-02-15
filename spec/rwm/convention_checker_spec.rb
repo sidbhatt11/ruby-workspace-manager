@@ -52,4 +52,27 @@ RSpec.describe Rwm::ConventionChecker do
 
     expect(checker.check!).to be true
   end
+
+  it "ignores edges referencing unknown packages" do
+    graph = make_graph([auth], [["auth", "unknown_dep"]])
+    checker = described_class.new(graph)
+
+    expect(checker.check).to be_empty
+  end
+
+  it "detects cyclic dependencies" do
+    graph = make_graph([auth, billing], [["auth", "billing"], ["billing", "auth"]])
+    checker = described_class.new(graph)
+    violations = checker.check
+
+    expect(violations).not_to be_empty
+    expect(violations.first).to include("Dependency cycle")
+  end
+
+  it "ignores app edges referencing unknown packages" do
+    graph = make_graph([api], [["api", "unknown_dep"]])
+    checker = described_class.new(graph)
+
+    expect(checker.check).to be_empty
+  end
 end
