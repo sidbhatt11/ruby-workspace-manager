@@ -28,16 +28,8 @@ module Rwm
       File.join(path, "Gemfile")
     end
 
-    def gemspec_path
-      Dir.glob(File.join(path, "*.gemspec")).first
-    end
-
     def relative_path(workspace_root)
       Pathname.new(path).relative_path_from(Pathname.new(workspace_root)).to_s
-    end
-
-    def to_s
-      "#{name} (#{type})"
     end
 
     def ==(other)

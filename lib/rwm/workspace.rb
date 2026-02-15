@@ -33,14 +33,6 @@ module Rwm
       File.join(rwm_dir, GRAPH_FILE)
     end
 
-    def libs_dir
-      File.join(root, "libs")
-    end
-
-    def apps_dir
-      File.join(root, "apps")
-    end
-
     # Discover all packages by scanning libs/ and apps/ for directories with a Gemfile
     def packages
       @packages ||= discover_packages

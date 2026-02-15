@@ -161,23 +161,6 @@ module Rwm
       File.write(path, JSON.pretty_generate(to_json_data) + "\n")
     end
 
-    def self.load_from_file(path)
-      data = JSON.parse(File.read(path))
-      graph = new
-
-      # We can't reconstruct full Package objects from JSON alone,
-      # but we can load the structure for validation
-      data["edges"]&.each do |name, deps|
-        graph.instance_variable_get(:@edges)[name] = deps
-        deps.each do |dep|
-          graph.instance_variable_get(:@dependents)[dep] ||= []
-          graph.instance_variable_get(:@dependents)[dep] << name
-        end
-      end
-
-      graph
-    end
-
     def to_dot
       lines = []
       lines << "digraph rwm {"
