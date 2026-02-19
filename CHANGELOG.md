@@ -4,6 +4,29 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-20
+
+### Added
+- `--test` option for `rwm new` — choose between `rspec` (default), `minitest`, or `none` for scaffolded test infrastructure
+- Parallel cache declaration discovery — preloads task declarations across packages using threads for faster `rwm run` startup
+- File locking on `.rwm/graph.json` — shared locks for reads, exclusive locks for writes, safe for concurrent `rwm` processes
+- Custom affected ignore patterns via `.rwm/affected_ignore` — one glob per line, merged with built-in defaults
+- Built-in ignore patterns for affected detection — `*.md`, `LICENSE*`, `CHANGELOG*`, `.github/**`, `.vscode/**`, `.idea/**`, `docs/**`, `.rwm/**` no longer trigger full workspace runs
+
+### Changed
+- `rwm init` now detects the git root via `git rev-parse --show-toplevel` instead of using the current directory — works correctly from subdirectories
+- `execution_levels` uses `Set` instead of `Array` for O(V+E) performance instead of O(V^3)
+- CLI flags (`--no-cache`, `--affected`, etc.) now work in any position — `rwm run spec --no-cache` and `rwm --no-cache run spec` are both valid
+- Root Gemfile template from `rwm init` now includes `rake` for consistency with package Gemfiles
+- Consolidated README and GUIDE into a single comprehensive README
+- Security policy updated: only latest release supported until 1.0
+
+### Fixed
+- CLI now catches `Interrupt` (exit 130) and unexpected `StandardError` (friendly message, backtrace in verbose mode) instead of printing raw backtraces
+- `NO_TASK_PATTERN` broadened to handle case variations and locale differences in Rake's "task not found" message
+- `Rwm.resolved_libs` no longer leaks duplicate entries from `scan_transitive_deps` sandbox
+- Thread deadlock in DAG scheduler — replaced `Result` boolean fields with status enum
+
 ## [0.5.0] - 2026-02-15
 
 ### Added
@@ -63,7 +86,7 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - VSCode `.code-workspace` file generation
 - Overcommit integration and plain git hooks fallback
 - Auto-loading cached dependency graph with staleness detection
-- Comprehensive usage guide (GUIDE.md)
+- Comprehensive usage guide (consolidated into README in v0.6.0)
 - CI pipeline with security scanning (bundler-audit, CodeQL)
 
 ### Changed
@@ -87,7 +110,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.2.0...v0.3.0
