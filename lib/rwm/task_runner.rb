@@ -5,7 +5,14 @@ require "etc"
 
 module Rwm
   class TaskRunner
-    Result = Struct.new(:package_name, :task, :success, :output, :skipped, keyword_init: true)
+    Result = Struct.new(:package_name, :task, :status, :output, keyword_init: true) do
+      def passed? = status == :passed
+      def failed? = status == :failed
+      def skipped? = status == :skipped
+      def dep_skipped? = status == :dep_skipped
+      def errored? = status == :errored
+      def success? = passed? || skipped?
+    end
 
     NO_TASK_PATTERN = /Don't know how to build task/
 
@@ -60,28 +67,38 @@ module Rwm
 
             pending.delete(pkg)
             running[pkg.name] = Thread.new do
-              result = run_single(pkg, &command_proc)
-              mutex.synchronize do
-                @results << result
-                running.delete(pkg.name)
-                if result.success
-                  completed << pkg.name
-                else
-                  skip_names = @graph.transitive_dependents(pkg.name)
-                                     .select { |n| package_names.include?(n) }
-                  skip_names.each do |name|
-                    skip_pkg = pending.find { |p| p.name == name }
-                    if skip_pkg
-                      pending.delete(skip_pkg)
-                      skipped << name
-                      @results << Result.new(
-                        package_name: name, task: "skipped",
-                        success: false, output: "Skipped due to failed dependency: #{pkg.name}"
-                      )
+              begin
+                result = run_single(pkg, &command_proc)
+              rescue => e
+                result = Result.new(
+                  package_name: pkg.name, task: "error",
+                  status: :errored, output: "Error: #{e.class}: #{e.message}"
+                )
+              ensure
+                next unless result # thread was killed before completing
+
+                mutex.synchronize do
+                  @results << result
+                  running.delete(pkg.name)
+                  if result.success?
+                    completed << pkg.name
+                  else
+                    skip_names = @graph.transitive_dependents(pkg.name)
+                                       .select { |n| package_names.include?(n) }
+                    skip_names.each do |name|
+                      skip_pkg = pending.find { |p| p.name == name }
+                      if skip_pkg
+                        pending.delete(skip_pkg)
+                        skipped << name
+                        @results << Result.new(
+                          package_name: name, task: "skipped",
+                          status: :dep_skipped, output: "Skipped due to failed dependency: #{pkg.name}"
+                        )
+                      end
                     end
                   end
+                  condition.broadcast
                 end
-                condition.broadcast
               end
             end
           end
@@ -107,11 +124,11 @@ module Rwm
     end
 
     def success?
-      @results.all?(&:success)
+      @results.none? { |r| r.failed? || r.errored? }
     end
 
     def failed_results
-      @results.select { |r| !r.success }
+      @results.select { |r| r.failed? || r.errored? }
     end
 
     private
@@ -139,9 +156,8 @@ module Rwm
         return Result.new(
           package_name: pkg.name,
           task: cmd.join(" "),
-          success: true,
-          output: "",
-          skipped: true
+          status: :skipped,
+          output: ""
         )
       end
 
@@ -154,7 +170,7 @@ module Rwm
       Result.new(
         package_name: pkg.name,
         task: cmd.join(" "),
-        success: status.success?,
+        status: status.success? ? :passed : :failed,
         output: output
       )
     end

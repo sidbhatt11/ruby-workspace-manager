@@ -102,9 +102,29 @@ RSpec.describe Rwm::TaskRunner do
         auth_result = runner.results.find { |r| r.package_name == "auth" }
         api_result = runner.results.find { |r| r.package_name == "api" }
 
-        expect(auth_result.success).to be false
-        expect(api_result.success).to be false
+        expect(auth_result.failed?).to be true
+        expect(api_result.dep_skipped?).to be true
         expect(api_result.output).to include("Skipped due to failed dependency: auth")
+      end
+    end
+
+    it "produces :errored result without deadlock on unexpected exception" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        runner = described_class.new(graph, packages: workspace.packages)
+        runner.run_command { |_pkg| raise Errno::ENOENT, "no such file" }
+
+        expect(runner.results.size).to eq(1)
+        result = runner.results.first
+        expect(result.errored?).to be true
+        expect(result.output).to include("Errno::ENOENT")
+        expect(runner.success?).to be false
       end
     end
 
@@ -214,10 +234,10 @@ RSpec.describe Rwm::TaskRunner do
         api_result = runner.results.find { |r| r.package_name == "api" }
         billing_result = runner.results.find { |r| r.package_name == "billing" }
 
-        expect(auth_result.success).to be false
-        expect(api_result.success).to be false
+        expect(auth_result.failed?).to be true
+        expect(api_result.dep_skipped?).to be true
         expect(api_result.output).to include("Skipped due to failed dependency: auth")
-        expect(billing_result.success).to be true
+        expect(billing_result.passed?).to be true
         expect(billing_result.output).to include("ran billing")
       end
     end
@@ -238,7 +258,7 @@ RSpec.describe Rwm::TaskRunner do
 
         expect(runner.success?).to be true
         result = runner.results.first
-        expect(result.skipped).to be true
+        expect(result.skipped?).to be true
       end
     end
   end

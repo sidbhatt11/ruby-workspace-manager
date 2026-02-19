@@ -90,35 +90,36 @@ module Rwm
         # Store cache for successful cacheable packages
         if cache
           runner.results.each do |result|
-            next unless result.success
-            next if result.skipped
+            next unless result.passed?
 
             pkg = workspace.find_package(result.package_name)
             cache.store(pkg, task) if cache.cacheable?(pkg, task)
           end
         end
 
-        passed, rest = runner.results.partition { |r| r.success && !r.skipped }
-        failed, skipped = rest.partition { |r| !r.success }
-        skipped_from_rest = runner.results.select(&:skipped)
+        passed = runner.results.count(&:passed?)
+        failed_results = runner.results.select { |r| r.failed? || r.errored? }
+        skipped = runner.results.count { |r| r.skipped? || r.dep_skipped? }
 
         total = runner.results.size
         parts = []
-        parts << "#{passed.size} passed" unless passed.empty?
-        parts << "#{failed.size} failed" unless failed.empty?
-        parts << "#{skipped_from_rest.size} skipped" unless skipped_from_rest.empty?
+        parts << "#{passed} passed" unless passed.zero?
+        parts << "#{failed_results.size} failed" unless failed_results.empty?
+        parts << "#{skipped} skipped" unless skipped.zero?
 
         puts
         puts "#{total} package(s): #{parts.join(", ")}."
 
-        Rwm.debug("passed: #{passed.map(&:package_name).join(", ")}") unless passed.empty?
-        Rwm.debug("skipped (no matching task): #{skipped_from_rest.map(&:package_name).join(", ")}") unless skipped_from_rest.empty?
+        passed_results = runner.results.select(&:passed?)
+        skipped_results = runner.results.select { |r| r.skipped? || r.dep_skipped? }
+        Rwm.debug("passed: #{passed_results.map(&:package_name).join(", ")}") unless passed_results.empty?
+        Rwm.debug("skipped (no matching task): #{skipped_results.map(&:package_name).join(", ")}") unless skipped_results.empty?
 
-        if failed.empty?
+        if failed_results.empty?
           0
         else
           $stderr.puts "Failed:"
-          failed.each { |r| $stderr.puts "  - #{r.package_name}" }
+          failed_results.each { |r| $stderr.puts "  - #{r.package_name}" }
           1
         end
       end

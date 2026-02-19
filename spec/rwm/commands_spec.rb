@@ -393,6 +393,31 @@ RSpec.describe "Commands" do
       end
     end
 
+    it "reports dependency-skipped packages as skipped, not failed" do
+      with_workspace(packages: {
+        auth: { type: :lib, rakefile_content: "task :ping do\n  exit 1\nend" },
+        api: { type: :app, deps: [:auth], rakefile_content: "task :ping do\n  puts 'ok'\nend" }
+      }) do
+        output = StringIO.new
+        stderr = StringIO.new
+        $stdout = output
+        $stderr = stderr
+
+        result = described_class.new(["--no-cache", "ping"]).run
+
+        $stdout = STDOUT
+        $stderr = STDERR
+        expect(result).to eq(1)
+        text = output.string + stderr.string
+        expect(text).to include("1 failed")
+        expect(text).to include("1 skipped")
+        # Only auth should be listed as failed, not api
+        expect(text).to include("Failed:")
+        expect(text).to include("auth")
+        expect(text).not_to include("- api")
+      end
+    end
+
     it "reports failures in summary" do
       with_workspace(packages: {
         auth: { type: :lib, rakefile_content: "task :ping do\n  exit 1\nend" },
