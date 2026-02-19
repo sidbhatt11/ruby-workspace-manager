@@ -51,8 +51,15 @@ module Rwm
       const_name = COMMANDS[command_name]
       command_class = const_name.split("::").reduce(Rwm) { |mod, name| mod.const_get(name) }
       command_class.new(@argv).run
+    rescue Interrupt
+      $stderr.puts "\nInterrupted."
+      130
     rescue Rwm::Error => e
       $stderr.puts "Error: #{e.message}"
+      1
+    rescue StandardError => e
+      $stderr.puts "Error: #{e.message}"
+      Rwm.debug("#{e.class}: #{e.message}\n#{e.backtrace&.join("\n")}")
       1
     end
 

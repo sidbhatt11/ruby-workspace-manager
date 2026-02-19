@@ -38,7 +38,7 @@ module Rwm
       return if @rwm_resolved.include?(name)
 
       @rwm_resolved.add(name)
-      Rwm.resolved_libs.add(name)
+      Rwm.resolved_libs.add(name) unless @rwm_scanning
 
       path = File.join(rwm_workspace_root, "libs", name)
       gem(name, **opts, path: path)
@@ -54,6 +54,7 @@ module Rwm
 
     def scan_transitive_deps(gemfile_path)
       sandbox = Bundler::Dsl.new
+      sandbox.instance_variable_set(:@rwm_scanning, true)
       sandbox.eval_gemfile(gemfile_path)
 
       libs_prefix = File.join(rwm_workspace_root, "libs") + "/"

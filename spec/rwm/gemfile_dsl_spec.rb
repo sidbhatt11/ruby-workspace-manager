@@ -200,6 +200,24 @@ RSpec.describe Rwm::GemfileDsl do
       expect(dsl).not_to have_received(:gem).with("some_external", anything)
     end
 
+    it "does not leak sandbox libs into Rwm.resolved_libs" do
+      write_lib_gemfile("core", <<~GEMFILE)
+        source "https://rubygems.org"
+      GEMFILE
+
+      write_lib_gemfile("auth", <<~GEMFILE)
+        source "https://rubygems.org"
+        gem "core", path: "../../libs/core"
+      GEMFILE
+
+      dsl.rwm_lib("auth")
+
+      # Each lib should appear exactly once — the sandbox scan should not
+      # have added duplicates to the global set
+      expect(Rwm.resolved_libs.to_a.sort).to eq(%w[auth core])
+      expect(Rwm.resolved_libs.size).to eq(2)
+    end
+
     it "populates Rwm.resolved_libs with all resolved names" do
       write_lib_gemfile("core", <<~GEMFILE)
         source "https://rubygems.org"

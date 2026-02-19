@@ -189,7 +189,28 @@ RSpec.describe Rwm::AffectedDetector do
       end
     end
 
-    it "returns all packages when root-level files change" do
+    it "returns all packages when significant root-level files change" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib },
+            billing: { type: :lib }
+          },
+          changed_files: {
+            "Gemfile" => "# Changed"
+          }
+        )
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        affected = detector.affected_packages
+        expect(affected.map(&:name)).to contain_exactly("auth", "billing")
+      end
+    end
+
+    it "ignores README.md via default *.md pattern" do
       Dir.mktmpdir do |dir|
         setup_git_workspace(dir,
           packages: {
@@ -198,6 +219,76 @@ RSpec.describe Rwm::AffectedDetector do
           },
           changed_files: {
             "README.md" => "# Changed"
+          }
+        )
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        affected = detector.affected_packages
+        expect(affected).to be_empty
+      end
+    end
+
+    it "ignores .github/workflows/ci.yml via default .github/** pattern" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib }
+          },
+          changed_files: {
+            ".github/workflows/ci.yml" => "name: CI"
+          }
+        )
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        affected = detector.affected_packages
+        expect(affected).to be_empty
+      end
+    end
+
+    it "respects custom patterns from .rwm/affected_ignore" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib }
+          },
+          changed_files: {
+            "Makefile" => "all: build"
+          }
+        )
+
+        # Add custom ignore pattern
+        rwm_dir = File.join(dir, ".rwm")
+        FileUtils.mkdir_p(rwm_dir)
+        File.write(File.join(rwm_dir, "affected_ignore"), "Makefile\n# comment\n\n")
+        system("git", "-C", dir, "add", ".rwm/affected_ignore", out: File::NULL, err: File::NULL)
+        system("git", "-C", dir, "-c", "user.name=Test", "-c", "user.email=test@test.com",
+               "commit", "--amend", "--no-edit", "--no-gpg-sign", out: File::NULL, err: File::NULL)
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        detector = described_class.new(workspace, graph)
+
+        affected = detector.affected_packages
+        expect(affected).to be_empty
+      end
+    end
+
+    it "marks all packages affected when any root file is significant" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: {
+            auth: { type: :lib },
+            billing: { type: :lib }
+          },
+          changed_files: {
+            "README.md" => "# ignored",
+            "Gemfile" => "# significant"
           }
         )
 

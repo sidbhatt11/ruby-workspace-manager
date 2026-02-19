@@ -4,6 +4,19 @@ require "open3"
 
 module Rwm
   class AffectedDetector
+    IGNORED_ROOT_PATTERNS = [
+      "*.md",
+      "LICENSE*",
+      "CHANGELOG*",
+      ".github/**",
+      ".vscode/**",
+      ".idea/**",
+      "docs/**",
+      ".rwm/**",
+    ].freeze
+
+    IGNORE_FILE = "affected_ignore"
+
     attr_reader :workspace, :graph, :base_branch
 
     def initialize(workspace, graph, committed_only: false, base_branch: nil)
@@ -20,7 +33,10 @@ module Rwm
 
       # If root-level files changed (outside any package), all packages are affected
       root_files = changed_files.reject { |f| file_in_any_package?(f) }
-      unless root_files.empty?
+      significant_root_files = root_files.reject { |f| ignored_root_file?(f) }
+
+      unless significant_root_files.empty?
+        Rwm.debug("affected: significant root files changed: #{significant_root_files.join(', ')}")
         return workspace.packages
       end
 
@@ -110,6 +126,26 @@ module Rwm
         rel_path = pkg.relative_path(workspace.root)
         file.start_with?("#{rel_path}/")
       end
+    end
+
+    def ignored_root_file?(file)
+      ignore_patterns.any? do |pattern|
+        File.fnmatch(pattern, file, File::FNM_DOTMATCH)
+      end
+    end
+
+    def ignore_patterns
+      patterns = IGNORED_ROOT_PATTERNS.dup
+      ignore_file = File.join(workspace.root, ".rwm", IGNORE_FILE)
+      if File.exist?(ignore_file)
+        File.readlines(ignore_file).each do |line|
+          line = line.strip
+          next if line.empty? || line.start_with?("#")
+
+          patterns << line
+        end
+      end
+      patterns
     end
   end
 end

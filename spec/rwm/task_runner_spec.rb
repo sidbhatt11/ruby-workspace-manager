@@ -244,6 +244,30 @@ RSpec.describe Rwm::TaskRunner do
   end
 
   describe "task not found handling" do
+    describe "NO_TASK_PATTERN" do
+      it "matches case-insensitive variants of the error message" do
+        pattern = Rwm::TaskRunner::NO_TASK_PATTERN
+        expect("Don't know how to build task 'foo'").to match(pattern)
+        expect("don't know how to build task 'foo'").to match(pattern)
+        expect("DON'T KNOW HOW TO BUILD TASK 'foo'").to match(pattern)
+        # Handles apostrophe variants (don.t matches any single char)
+        expect("Don\u2019t know how to build task 'foo'").to match(pattern)
+      end
+
+      it "matches the rake --tasks hint text" do
+        pattern = Rwm::TaskRunner::NO_TASK_PATTERN
+        expect("See rake --tasks for available tasks").to match(pattern)
+        expect("Run rake --tasks to see available tasks").to match(pattern)
+      end
+
+      it "does not match normal task failure messages" do
+        pattern = Rwm::TaskRunner::NO_TASK_PATTERN
+        expect("rake aborted!").not_to match(pattern)
+        expect("Task failed with exit code 1").not_to match(pattern)
+        expect("Error: compilation failed").not_to match(pattern)
+      end
+    end
+
     it "treats missing rake task as skipped, not failed" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: {

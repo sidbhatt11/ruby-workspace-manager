@@ -14,7 +14,11 @@ module Rwm
       def success? = passed? || skipped?
     end
 
-    NO_TASK_PATTERN = /Don't know how to build task/
+    NO_TASK_PATTERN = /
+      don.t\s+know\s+how\s+to\s+build\s+task
+      |
+      rake\s+--tasks
+    /ix
 
     attr_reader :results
 
@@ -152,7 +156,7 @@ module Rwm
 
       # Detect "task not found" and treat as skipped, not failed
       if !status.success? && stderr.match?(NO_TASK_PATTERN)
-        Rwm.debug("#{pkg.name}: task not found, skipping")
+        Rwm.debug("#{pkg.name}: task not found (matched: #{stderr.lines.first&.chomp})")
         return Result.new(
           package_name: pkg.name,
           task: cmd.join(" "),

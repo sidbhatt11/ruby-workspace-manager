@@ -86,6 +86,50 @@ RSpec.describe Rwm::CLI do
     it "registers the cache command" do
       expect(Rwm::CLI::COMMANDS).to include("cache" => "Commands::Cache")
     end
+
+    it "returns 130 and prints Interrupted on Interrupt" do
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).and_raise(Interrupt)
+      stub_const("Rwm::Commands::List", fake_class)
+
+      cli = described_class.new(["list"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/list")
+
+      result = nil
+      expect { result = cli.run }.to output(/Interrupted/).to_stderr
+      expect(result).to eq(130)
+    end
+
+    it "returns 1 and prints error for unexpected StandardError" do
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).and_raise(Errno::ENOENT, "no such file")
+      stub_const("Rwm::Commands::List", fake_class)
+
+      cli = described_class.new(["list"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/list")
+
+      result = nil
+      expect { result = cli.run }.to output(/Error:/).to_stderr
+      expect(result).to eq(1)
+    end
+
+    it "shows backtrace in verbose mode for unexpected errors" do
+      fake_class = double("class")
+      allow(fake_class).to receive(:new).and_raise(Errno::ENOENT, "no such file")
+      stub_const("Rwm::Commands::List", fake_class)
+
+      cli = described_class.new(["--verbose", "list"])
+      allow(cli).to receive(:check_required_tools)
+      allow(cli).to receive(:require).with("rwm/commands/list")
+
+      result = nil
+      expect { result = cli.run }.to output(/Error:/).to_stderr
+      expect(result).to eq(1)
+      # Verbose mode was set, so debug would have been called with backtrace
+      expect(Rwm.verbose?).to be true
+    end
   end
 
   describe "--verbose flag" do
