@@ -157,17 +157,21 @@ The `.rwm/` directory is created automatically and should be gitignored. It stor
 ```sh
 rwm new lib <name>
 rwm new app <name>
+rwm new lib <name> --test=minitest
+rwm new app <name> --test=none
 ```
 
 Package names must match `/\A[a-z][a-z0-9_]*\z/` (lowercase, letters/digits/underscores, starts with a letter).
 
+The `--test` flag controls which test framework is scaffolded. Values: `rspec` (default), `minitest`, `none`.
+
 The scaffold includes:
 
-- **Gemfile** — Sources rubygems.org, loads the gemspec, includes development dependencies (`rake`, `rspec`, `ruby_workspace_manager`), and requires `rwm/gemfile` for the `rwm_lib` helper.
+- **Gemfile** — Sources rubygems.org, loads the gemspec, includes development dependencies (`rake`, the chosen test gem, `ruby_workspace_manager`), and requires `rwm/gemfile` for the `rwm_lib` helper.
 - **Gemspec** — Minimal spec. Libraries use `require_paths = ["lib"]` and declare `spec.files`; applications use `require_paths = ["app"]` and omit `spec.files`.
-- **Rakefile** — A `cacheable_task :spec` (from `rwm/rake`) plus an empty `:bootstrap` task for custom setup.
+- **Rakefile** — A `cacheable_task` for the test framework (`:spec` for rspec, `:test` for minitest) plus an empty `:bootstrap` task. With `--test=none`, only the bootstrap task is generated.
 - **Source file** — `lib/<name>.rb` for libraries, `app/<name>.rb` for applications. Module stub.
-- **spec/spec_helper.rb** — Minimal RSpec configuration.
+- **Test helper** — `spec/spec_helper.rb` for rspec, `test/test_helper.rb` for minitest. Omitted with `--test=none`.
 
 ### Inspecting and listing
 
@@ -626,7 +630,7 @@ Both scripts dynamically discover package names by scanning `libs/` and `apps/`,
 |---------|-------------|
 | `rwm init [--vscode]` | Initialize a workspace. Creates dirs, Gemfile, Rakefile, .gitignore. Runs bootstrap. Idempotent. |
 | `rwm bootstrap` | Install deps, build graph, install hooks, run bootstrap tasks. Idempotent. |
-| `rwm new <app\|lib> <name>` | Scaffold a new package. |
+| `rwm new <app\|lib> <name> [--test=FW]` | Scaffold a new package. `--test`: `rspec` (default), `minitest`, `none`. |
 | `rwm info <name>` | Show package details: type, path, deps, dependents. |
 | `rwm graph [--dot\|--mermaid]` | Rebuild dependency graph. Optionally output DOT or Mermaid. |
 | `rwm check` | Validate conventions. Exit 0 on pass, 1 on failure. |
