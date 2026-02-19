@@ -272,6 +272,65 @@ RSpec.describe Rwm::DependencyGraph do
     end
   end
 
+  describe "file locking" do
+    it "produces valid JSON under concurrent writes" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = described_class.build(workspace)
+        path = workspace.graph_path
+
+        # Spawn multiple threads writing concurrently
+        threads = 5.times.map do
+          Thread.new { graph.save(path, dir) }
+        end
+        threads.each(&:join)
+
+        # The file should always be valid JSON
+        data = JSON.parse(File.read(path))
+        expect(data["version"]).to eq(1)
+        expect(data["packages"]).to have_key("auth")
+      end
+    end
+
+    it "reads valid data while another process holds a write lock" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = described_class.build(workspace)
+        path = workspace.graph_path
+        graph.save(path, dir)
+
+        # Hold an exclusive lock on the file in a thread, then release
+        barrier = Queue.new
+        done = Queue.new
+        thread = Thread.new do
+          File.open(path, "r+") do |f|
+            f.flock(File::LOCK_EX)
+            barrier.push(true)       # Signal that lock is held
+            done.pop                 # Wait for main thread to signal release
+          end
+        end
+
+        barrier.pop # Wait until lock is held
+
+        # load should block until lock is released
+        reader = Thread.new { described_class.load(workspace) }
+        sleep 0.05
+        done.push(true) # Release the lock
+
+        loaded = reader.value
+        thread.join
+        expect(loaded.packages.keys).to eq(["auth"])
+      end
+    end
+  end
+
   describe "JSON serialization" do
     it "saves and produces valid JSON structure" do
       Dir.mktmpdir do |dir|

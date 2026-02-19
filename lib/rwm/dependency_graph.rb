@@ -103,7 +103,7 @@ module Rwm
       end
 
       Rwm.debug("graph: loading from cache at #{path}")
-      data = JSON.parse(File.read(path))
+      data = JSON.parse(read_locked(path))
       graph = new
 
       workspace.packages.each { |pkg| graph.add_package(pkg) }
@@ -126,7 +126,16 @@ module Rwm
       packages.any? { |pkg| File.mtime(pkg.gemfile_path) > graph_mtime }
     end
 
-    private_class_method :stale?, :build_and_save
+    def self.read_locked(path)
+      File.open(path, "r") do |f|
+        f.flock(File::LOCK_SH)
+        f.read
+      end
+    rescue Errno::ENOTSUP
+      File.read(path)
+    end
+
+    private_class_method :stale?, :build_and_save, :read_locked
 
     # Build graph from a workspace by parsing all Gemfiles
     def self.build(workspace)
@@ -158,7 +167,7 @@ module Rwm
       @workspace_root = workspace_root
       dir = File.dirname(path)
       FileUtils.mkdir_p(dir)
-      File.write(path, JSON.pretty_generate(to_json_data) + "\n")
+      write_locked(path, JSON.pretty_generate(to_json_data) + "\n")
     end
 
     def to_dot
@@ -199,6 +208,15 @@ module Rwm
     end
 
     private
+
+    def write_locked(path, content)
+      File.open(path, File::CREAT | File::WRONLY | File::TRUNC) do |f|
+        f.flock(File::LOCK_EX)
+        f.write(content)
+      end
+    rescue Errno::ENOTSUP
+      File.write(path, content)
+    end
 
     # TSort interface
     def tsort_each_node(&block)
