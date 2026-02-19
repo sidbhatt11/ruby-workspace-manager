@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# Install git hooks for local development of RWM itself.
+# Run once after cloning: script/setup-hooks
+
+set -e
+
+HOOKS_DIR="$(git rev-parse --show-toplevel)/.git/hooks"
+
+# pre-push: run the test suite before pushing
+cat > "$HOOKS_DIR/pre-push" << 'HOOK'
+#!/bin/bash
+
+echo "Running tests before push..."
+output=$(bundle exec rspec --format progress --no-color 2>&1)
+status=$?
+
+echo "$output" | grep -E "examples|failures"
+
+if [ $status -ne 0 ]; then
+  echo "Tests failed. Push aborted."
+  exit 1
+fi
+HOOK
+
+chmod +x "$HOOKS_DIR/pre-push"
+
+echo "Git hooks installed."

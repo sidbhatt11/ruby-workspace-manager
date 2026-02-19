@@ -131,6 +131,16 @@ Every commit authored with the `Co-Authored-By` trailer was produced in an AI-as
 
 Commits without the trailer were made by the human independently.
 
+## Local setup
+
+After cloning, install git hooks:
+
+```sh
+script/setup-hooks
+```
+
+This installs a **pre-push** hook that runs the full test suite before every push. If tests fail, the push is aborted. The hook shows only the summary line to keep output quiet.
+
 ## Tools
 
 - **Claude Code** (CLI) — the AI pair programming tool used for all AI-assisted work
