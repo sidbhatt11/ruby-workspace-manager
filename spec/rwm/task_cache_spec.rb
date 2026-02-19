@@ -300,6 +300,56 @@ RSpec.describe Rwm::TaskCache do
     end
   end
 
+  describe "#preload_declarations" do
+    it "populates declarations for all packages in parallel" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib }
+        })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+
+        ok_status = instance_double(Process::Status, success?: true)
+        allow(Open3).to receive(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: anything)
+          .and_return(['{"spec": {}}', "", ok_status])
+
+        cache.preload_declarations(workspace.packages)
+
+        # Both packages should now be cached — no further shell-outs needed
+        auth = workspace.find_package("auth")
+        billing = workspace.find_package("billing")
+        expect(cache.cacheable?(auth, "spec")).to be true
+        expect(cache.cacheable?(billing, "spec")).to be true
+      end
+    end
+
+    it "shells out only once per package even with preload" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+        pkg = workspace.find_package("auth")
+
+        ok_status = instance_double(Process::Status, success?: true)
+        allow(Open3).to receive(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .and_return(['{"spec": {}}', "", ok_status])
+
+        cache.preload_declarations([pkg])
+        cache.cache_declarations(pkg)
+        cache.cache_declarations(pkg)
+
+        expect(Open3).to have_received(:capture3)
+          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .once
+      end
+    end
+  end
+
   describe "#cache_declarations memoization" do
     it "returns memoized result on second call" do
       Dir.mktmpdir do |dir|

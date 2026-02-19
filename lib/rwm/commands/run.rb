@@ -62,6 +62,7 @@ module Rwm
         # Auto-detect cacheable tasks unless --no-cache
         cache = TaskCache.new(workspace, graph) unless @no_cache
         if cache
+          cache.preload_declarations(runnable)
           cacheable, not_cacheable = runnable.partition { |pkg| cache.cacheable?(pkg, task) }
           cached, uncached = cacheable.partition { |pkg| cache.cached?(pkg, task) }
           cached.each { |pkg| puts "[#{pkg.name}] cached" }

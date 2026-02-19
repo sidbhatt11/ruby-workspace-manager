@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "etc"
 require "fileutils"
 require "json"
 require "open3"
@@ -24,6 +25,7 @@ module Rwm
       @cache_dir = File.join(workspace.root, ".rwm", "cache")
       @content_hashes = {}
       @cache_declarations = {}
+      @declarations_mutex = Mutex.new
     end
 
     # Returns true if the task is declared cacheable in the package's Rakefile
@@ -98,19 +100,46 @@ module Rwm
       @content_hashes[package.name] = digest.hexdigest
     end
 
+    # Preload cache declarations for multiple packages in parallel.
+    # Warms the memoization hash so subsequent cacheable?/cached? calls are instant.
+    def preload_declarations(packages)
+      pending = packages.reject { |pkg| @cache_declarations.key?(pkg.name) }
+      return if pending.empty?
+
+      Rwm.debug("cache declarations: preloading #{pending.size} package(s) in parallel")
+      concurrency = [Etc.nprocessors, pending.size].min
+      threads = []
+
+      pending.each_slice((pending.size.to_f / concurrency).ceil) do |batch|
+        threads << Thread.new do
+          batch.each { |pkg| cache_declarations(pkg) }
+        end
+      end
+
+      threads.each(&:join)
+    end
+
     # Discover cacheable task declarations by running `bundle exec rake rwm:cache_config`
     def cache_declarations(package)
-      return @cache_declarations[package.name] if @cache_declarations.key?(package.name)
+      @declarations_mutex.synchronize do
+        return @cache_declarations[package.name] if @cache_declarations.key?(package.name)
+      end
 
       Rwm.debug("cache declarations: discovering for #{package.name}")
       output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
-      @cache_declarations[package.name] = if status.success? && !output.strip.empty?
-                                             JSON.parse(output.strip)
-                                           else
-                                             {}
-                                           end
+      result = if status.success? && !output.strip.empty?
+                 JSON.parse(output.strip)
+               else
+                 {}
+               end
+
+      @declarations_mutex.synchronize do
+        @cache_declarations[package.name] = result
+      end
     rescue JSON::ParserError
-      @cache_declarations[package.name] = {}
+      @declarations_mutex.synchronize do
+        @cache_declarations[package.name] = {}
+      end
     end
 
     private
