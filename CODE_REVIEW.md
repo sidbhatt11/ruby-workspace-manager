@@ -2,17 +2,17 @@
 
 ## High Priority
 
-### 1. Worker thread exceptions cause deadlock
+### 1. ~~Worker thread exceptions cause deadlock~~ ✅ Fixed
 
 **File:** `lib/rwm/task_runner.rb`
 
-If `Open3.capture3` raises an unexpected exception (e.g., `Errno::ENOENT` if `bundle` isn't found in a package dir), the thread dies without calling `condition.broadcast`. The main loop hangs forever waiting on the condition variable. The thread body needs a `begin/rescue/ensure` that always removes itself from `running` and broadcasts.
+Added `begin/rescue/ensure` around the thread body so exceptions always remove the thread from `running` and broadcast the condition variable. Result uses a status enum (`:passed`, `:failed`, `:skipped`, `:dep_skipped`, `:errored`).
 
-### 2. `Commands::Run` summary miscounts skipped packages
+### 2. ~~`Commands::Run` summary miscounts skipped packages~~ ✅ Fixed
 
-**File:** `lib/rwm/commands/run.rb:101-109`
+**File:** `lib/rwm/commands/run.rb`
 
-When a package fails and its dependents are skipped, those dependents are reported as "failed" in the summary — not "skipped." The `skipped` variable from the partition is unused, and `skipped_from_rest` only catches task-not-found skips, not dependency-failure skips (which have `skipped: nil`).
+Summary now correctly distinguishes dependency-skipped packages from task-not-found skips and failures, using the `Result#dep_skipped?` status.
 
 ## Medium Priority
 
