@@ -224,6 +224,66 @@ RSpec.describe "Commands" do
         expect { described_class.new(["lib", "auth"]).run }.to raise_error(Rwm::PackageExistsError)
       end
     end
+
+    context "with --test=minitest" do
+      it "scaffolds with minitest infrastructure" do
+        with_workspace do
+          output = StringIO.new
+          $stdout = output
+
+          result = described_class.new(["--test=minitest", "lib", "payments"]).run
+
+          $stdout = STDOUT
+          expect(result).to eq(0)
+          expect(File.directory?("libs/payments/test")).to be true
+          expect(File.exist?("libs/payments/test/test_helper.rb")).to be true
+          expect(File.read("libs/payments/test/test_helper.rb")).to include("minitest/autorun")
+          expect(File.read("libs/payments/Gemfile")).to include('"minitest"')
+          expect(File.read("libs/payments/Gemfile")).not_to include('"rspec"')
+          expect(File.read("libs/payments/Rakefile")).to include("cacheable_task :test")
+          expect(File.read("libs/payments/Rakefile")).to include("task default: :test")
+          expect(File.directory?("libs/payments/spec")).to be false
+        end
+      end
+    end
+
+    context "with --test=none" do
+      it "scaffolds without test infrastructure" do
+        with_workspace do
+          output = StringIO.new
+          $stdout = output
+
+          result = described_class.new(["--test=none", "lib", "payments"]).run
+
+          $stdout = STDOUT
+          expect(result).to eq(0)
+          expect(File.directory?("libs/payments/spec")).to be false
+          expect(File.directory?("libs/payments/test")).to be false
+          expect(File.read("libs/payments/Gemfile")).not_to include('"rspec"')
+          expect(File.read("libs/payments/Gemfile")).not_to include('"minitest"')
+          expect(File.read("libs/payments/Rakefile")).not_to include("cacheable_task")
+          expect(File.read("libs/payments/Rakefile")).not_to include("task default:")
+        end
+      end
+    end
+
+    context "with default --test (rspec)" do
+      it "scaffolds with rspec infrastructure" do
+        with_workspace do
+          output = StringIO.new
+          $stdout = output
+
+          result = described_class.new(["lib", "payments"]).run
+
+          $stdout = STDOUT
+          expect(result).to eq(0)
+          expect(File.directory?("libs/payments/spec")).to be true
+          expect(File.read("libs/payments/Gemfile")).to include('"rspec"')
+          expect(File.read("libs/payments/Rakefile")).to include("cacheable_task :spec")
+          expect(File.read("libs/payments/Rakefile")).to include("task default: :spec")
+        end
+      end
+    end
   end
 
   describe Rwm::Commands::Cache do
