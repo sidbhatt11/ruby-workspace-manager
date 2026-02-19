@@ -65,7 +65,7 @@ rwm new lib billing
 rwm new app api
 ```
 
-Each command scaffolds a complete gem structure: Gemfile, gemspec, Rakefile, module stub, and spec helper.
+Each command scaffolds a complete gem structure: Gemfile, gemspec, Rakefile, module stub, and test helper (unless `--test=none`).
 
 ### Declaring dependencies
 
@@ -88,8 +88,8 @@ rwm bootstrap
 ### Running tasks
 
 ```sh
-rwm test           # runs `rake test` in every package that defines it
-rwm spec           # any unrecognized command is a task shortcut
+rwm spec           # runs `rake spec` in every package that defines it
+rwm lint           # any unrecognized command is a task shortcut
 rwm lint auth      # run a task in a single package
 ```
 
@@ -148,7 +148,7 @@ my-project/                # git root = workspace root
 
 A directory is recognized as a package if it lives directly inside `libs/` or `apps/` and contains a `Gemfile`. Nested directories or directories without a Gemfile are ignored.
 
-The `.rwm/` directory is created automatically and should be gitignored. It stores the dependency graph cache and task cache state.
+The `.rwm/` directory is created automatically and gitignored by `rwm init`. It stores the dependency graph cache and task cache state.
 
 ## Managing packages
 
@@ -266,7 +266,7 @@ Or paste Mermaid output into any Mermaid-compatible renderer (GitHub markdown, M
 ```sh
 rwm run <task>              # run in all packages
 rwm run <task> <package>    # run in one package
-rwm test                    # shortcut for `rwm run test`
+rwm spec                    # shortcut for `rwm run spec`
 rwm lint auth               # shortcut for `rwm run lint auth`
 ```
 
@@ -307,7 +307,7 @@ When a package fails, its transitive dependents are immediately skipped. Unrelat
 
 ### Why caching matters
 
-In a monorepo with many packages, most runs touch only a few. Without caching, `rwm test` re-runs everything even if nothing changed. Task caching skips packages whose inputs are unchanged.
+In a monorepo with many packages, most runs touch only a few. Without caching, `rwm spec` re-runs everything even if nothing changed. Task caching skips packages whose inputs are unchanged.
 
 ### Content-hash caching
 
@@ -501,10 +501,10 @@ RWM detects changes from three sources:
 2. **Staged changes** — `git diff --name-only --cached`
 3. **Unstaged changes** — `git diff --name-only`
 
-Changed files are mapped to packages by path prefix. Use `--committed` to ignore staged and unstaged changes:
+Changed files are mapped to packages by path prefix. Use `--committed` to only consider committed changes (ignoring staged and unstaged):
 
 ```sh
-rwm run spec --affected
+rwm run spec --affected --committed
 ```
 
 ### Root-level changes
@@ -618,10 +618,10 @@ Rails uses [Zeitwerk](https://github.com/fxn/zeitwerk) for autoloading. Zeitwerk
 
 ```ruby
 # apps/web/Gemfile
-require "rwm/gemfile"
-
 source "https://rubygems.org"
 gemspec
+
+require "rwm/gemfile"
 
 rwm_lib "auth"    # transitive deps resolved automatically
 ```
@@ -708,7 +708,7 @@ Both scripts dynamically discover package names by scanning `libs/` and `apps/`,
 | `rwm check` | Validate conventions. Exit 0 on pass, 1 on failure. |
 | `rwm list` | List all packages. |
 | `rwm run <task> [pkg]` | Run a Rake task across packages. |
-| `rwm <task> [pkg]` | Task shortcut: `rwm test` = `rwm run test`. |
+| `rwm <task> [pkg]` | Task shortcut: `rwm spec` = `rwm run spec`. |
 | `rwm affected [--committed] [--base REF]` | Show affected packages. |
 | `rwm cache clean [pkg]` | Clear cached task results. |
 | `rwm help` | Show available commands. |
