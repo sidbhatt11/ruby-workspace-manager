@@ -24,6 +24,9 @@
 ## Gem specific
 Gemfile.lock
 
+## RWM workspace cache
+.rwm/
+
 ## IDE
 .idea/
 *.swp
