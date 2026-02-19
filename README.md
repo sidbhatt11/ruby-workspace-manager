@@ -577,8 +577,8 @@ git pull --rebase
 rwm bootstrap          # picks up any new packages or dependency changes
 git checkout -b my-feature
 # ... make changes ...
-rwm test               # run all specs
-rwm run spec --affected # or just the affected ones
+rwm spec               # run all specs
+rwm spec --affected    # or just the affected ones
 ```
 
 The pre-push hook runs `rwm check` automatically. The post-commit hook rebuilds the graph when Gemfiles change.
