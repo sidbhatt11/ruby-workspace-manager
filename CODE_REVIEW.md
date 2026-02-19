@@ -16,29 +16,29 @@ When a package fails and its dependents are skipped, those dependents are report
 
 ## Medium Priority
 
-### 3. CLI only catches `Rwm::Error`
+### 3. ~~CLI only catches `Rwm::Error`~~ ✅ Fixed
 
-**File:** `lib/rwm/cli.rb:54-57`
+**File:** `lib/rwm/cli.rb`
 
-A malformed Gemfile raises `Bundler::GemfileError`, a permission issue raises `Errno::EACCES` — both result in raw backtraces. A broader rescue with a friendly message for common non-Rwm exceptions would improve UX.
+Added `rescue Interrupt` (exit 130) and `rescue StandardError` catch-all (friendly message, backtrace in verbose mode).
 
-### 4. `NO_TASK_PATTERN` relies on exact Rake error text
+### 4. ~~`NO_TASK_PATTERN` relies on exact Rake error text~~ ✅ Fixed
 
-**File:** `lib/rwm/task_runner.rb:10`
+**File:** `lib/rwm/task_runner.rb`
 
-`/Don't know how to build task/` is fragile — a future Rake version or different locale could break this. Rake does exit with a specific status code for missing tasks, which might be a more robust signal.
+Replaced with case-insensitive multi-pattern regex matching both "don't know how to build task" variants and "rake --tasks" hint text.
 
-### 5. Root-level file changes mark ALL packages affected
+### 5. ~~Root-level file changes mark ALL packages affected~~ ✅ Fixed
 
-**File:** `lib/rwm/affected_detector.rb:22-25`
+**File:** `lib/rwm/affected_detector.rb`
 
-Editing `README.md`, `.github/ci.yml`, or any root file triggers a full run across every package. An exclusion pattern config (or ignoring known-inert paths like `docs/`, `.github/`) would save a lot of unnecessary CI work.
+Inert root files (*.md, LICENSE*, .github/**, docs/**, etc.) are now ignored via `IGNORED_ROOT_PATTERNS`. Custom patterns supported via `.rwm/affected_ignore`.
 
-### 6. `Rwm.resolved_libs` is global mutable state
+### 6. ~~`Rwm.resolved_libs` is global mutable state~~ ✅ Fixed
 
-**File:** `lib/rwm/gemfile.rb:19`
+**File:** `lib/rwm/gemfile.rb`
 
-`GemfileParser.parse` evaluates Gemfiles which trigger `rwm_lib`, populating `resolved_libs` as a side effect. If graph building and `Rwm.require_libs` run in the same process, libs from other packages' Gemfiles leak in.
+Sandbox DSL instances used by `scan_transitive_deps` are now flagged with `@rwm_scanning`, preventing them from polluting `Rwm.resolved_libs`.
 
 ## Low Priority / Performance
 
