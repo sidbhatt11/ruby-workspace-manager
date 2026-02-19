@@ -434,6 +434,23 @@ RSpec.describe "Commands" do
       end
     end
 
+    it "accepts flags after the task name" do
+      with_workspace(packages: {
+        auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+      }) do
+        output = StringIO.new
+        $stdout = output
+
+        result = described_class.new(["ping", "--no-cache", "--dry-run"]).run
+
+        $stdout = STDOUT
+        expect(result).to eq(0)
+        text = output.string
+        expect(text).to include("Dry run:")
+        expect(text).to include("auth")
+      end
+    end
+
     it "reports skipped count in summary" do
       with_workspace(packages: {
         auth: { type: :lib, rakefile_content: "# no tasks" },

@@ -49,7 +49,7 @@ module Rwm
           end
         end
 
-        parser.order!(@argv)
+        parser.parse!(@argv)
       end
     end
   end
