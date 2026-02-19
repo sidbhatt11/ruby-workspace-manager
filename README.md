@@ -423,7 +423,7 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             bundle exec rwm run spec
           else
-            bundle exec rwm run spec --affected --committed
+            bundle exec rwm run spec --affected
           fi
 
       # Make cache available for local dev bootstrap
@@ -440,7 +440,7 @@ Key points:
 
 - **Fetch base branch** — Affected detection runs `git diff main...HEAD`, which needs the base branch ref. A shallow fetch of `main` is enough — no need for `fetch-depth: 0` or a full clone.
 - **`actions/cache`** — Caches created on the default branch are accessible to all feature branches. The `restore-keys` prefix picks up the most recent main cache automatically.
-- **Main runs everything**, populating a complete cache. Feature branches run only `--affected --committed` and skip anything already cached from main.
+- **Main runs everything**, populating a complete cache. Feature branches run only `--affected` and skip anything already cached from main.
 - **`upload-artifact`** on main makes the cache downloadable for local dev bootstrap (see below).
 
 #### Local developer cache (optional)
@@ -504,7 +504,7 @@ RWM detects changes from three sources:
 Changed files are mapped to packages by path prefix. Use `--committed` to ignore staged and unstaged changes:
 
 ```sh
-rwm run spec --affected --committed
+rwm run spec --affected
 ```
 
 ### Root-level changes
