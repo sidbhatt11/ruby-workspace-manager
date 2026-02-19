@@ -663,7 +663,7 @@ The Rails boot sequence: `config/boot.rb` runs `Bundler.setup` (adds gems to loa
 - `require "auth"` inside a controller or model — Zeitwerk is already active.
 - Adding workspace libs to `config.autoload_paths` — they have their own structure.
 
-Non-Rails apps don't have this problem and can `require` workspace libs anywhere.
+Non-Rails apps don't have this problem and can `require` workspace libs defined in their Gemfile anywhere in their code.
 
 ## VSCode integration
 
