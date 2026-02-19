@@ -397,8 +397,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # full history needed for affected detection
+
+      - name: Fetch base branch for affected detection
+        if: github.ref != 'refs/heads/main'
+        run: git fetch origin main --depth=1
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -436,7 +438,7 @@ jobs:
 
 Key points:
 
-- **`fetch-depth: 0`** — Affected detection needs full git history to compare branches.
+- **Fetch base branch** — Affected detection runs `git diff main...HEAD`, which needs the base branch ref. A shallow fetch of `main` is enough — no need for `fetch-depth: 0` or a full clone.
 - **`actions/cache`** — Caches created on the default branch are accessible to all feature branches. The `restore-keys` prefix picks up the most recent main cache automatically.
 - **Main runs everything**, populating a complete cache. Feature branches run only `--affected --committed` and skip anything already cached from main.
 - **`upload-artifact`** on main makes the cache downloadable for local dev bootstrap (see below).
