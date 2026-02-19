@@ -469,7 +469,7 @@ def restore_rwm_cache
 end
 ```
 
-This requires the [GitHub CLI](https://cli.github.com/) (`gh`). If the cache isn't available (first run, expired artifact, no `gh` installed), bootstrap continues normally and the cache builds from scratch.
+The example above uses the [GitHub CLI](https://cli.github.com/) (`gh`) to download artifacts — your setup may look different depending on your CI provider or storage backend (S3, GCS, etc.). The idea is the same: download the `.rwm/` directory from a known location during bootstrap.
 
 After cloning and running `rwm bootstrap`, developers have a warm cache. Creating a feature branch from main and running `rwm run spec --affected` skips unchanged packages immediately.
 
