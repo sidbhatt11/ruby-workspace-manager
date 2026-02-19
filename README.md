@@ -1,35 +1,671 @@
 [![CI](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml)
+[![Gem Version](https://img.shields.io/gem/v/ruby_workspace_manager)](https://rubygems.org/gems/ruby_workspace_manager)
 ![Ruby](https://img.shields.io/badge/Ruby-%3E%3D%203.4-red)
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
 # RWM — Ruby Workspace Manager
 
-An Nx-like monorepo tool for Ruby. Convention-over-configuration, zero runtime dependencies, delegates to Rake.
+A monorepo tool for Ruby, inspired by [Nx](https://nx.dev). Convention-over-configuration, zero runtime dependencies, delegates to Rake.
 
-## What it does
+RWM discovers packages in your repository, builds a dependency graph from Gemfiles, runs tasks in parallel respecting dependency order, detects which packages are affected by a change, and caches results so unchanged work is never repeated.
 
-RWM manages Ruby monorepos with multiple apps and libraries. It builds a dependency graph from your Gemfiles, enforces structural conventions, runs tasks in parallel respecting dependency order, detects affected packages from git changes, and caches results so unchanged work is never repeated.
+## Table of Contents
 
-## Commands
+- [Getting started](#getting-started)
+- [Core concepts](#core-concepts)
+- [Workspace layout](#workspace-layout)
+- [Managing packages](#managing-packages)
+- [Dependencies between packages](#dependencies-between-packages)
+- [The dependency graph](#the-dependency-graph)
+- [Running tasks](#running-tasks)
+- [Task caching](#task-caching)
+- [Affected detection](#affected-detection)
+- [Bootstrap and daily workflow](#bootstrap-and-daily-workflow)
+- [Git hooks](#git-hooks)
+- [Convention enforcement](#convention-enforcement)
+- [Rails and Zeitwerk](#rails-and-zeitwerk)
+- [VSCode integration](#vscode-integration)
+- [Shell completions](#shell-completions)
+- [Command reference](#command-reference)
+- [Design philosophy](#design-philosophy)
+- [Resources](#resources)
+
+---
+
+## Getting started
+
+### New workspace
+
+```sh
+gem install ruby_workspace_manager
+
+mkdir my-project && cd my-project
+git init
+rwm init
+```
+
+`rwm init` creates the full workspace structure — `libs/`, `apps/`, a root Gemfile (with `rake` and `ruby_workspace_manager`), a root Rakefile, and adds `.rwm/` to `.gitignore`. It then runs `rwm bootstrap` automatically. The command is idempotent.
+
+### Existing project
+
+If you already have a git repo with a Gemfile, add RWM to it and initialize:
+
+```sh
+bundle add ruby_workspace_manager
+rwm init
+```
+
+`rwm init` won't overwrite your existing Gemfile or Rakefile — it only creates files that are missing.
+
+### Creating packages
+
+```sh
+rwm new lib auth
+rwm new lib billing
+rwm new app api
+```
+
+Each command scaffolds a complete gem structure: Gemfile, gemspec, Rakefile, module stub, and spec helper.
+
+### Declaring dependencies
+
+Edit the consuming package's Gemfile:
+
+```ruby
+# apps/api/Gemfile
+require "rwm/gemfile"
+
+rwm_lib "auth"
+rwm_lib "billing"
+```
+
+Then bootstrap to install deps and rebuild the graph:
+
+```sh
+rwm bootstrap
+```
+
+### Running tasks
+
+```sh
+rwm test           # runs `rake test` in every package that defines it
+rwm spec           # any unrecognized command is a task shortcut
+rwm lint auth      # run a task in a single package
+```
+
+Tasks run in parallel, respecting dependency order. Packages that don't define the requested task are silently skipped.
+
+```
+$ rwm spec
+Running `rake spec` across 4 package(s)...
+
+[auth] 12 examples, 0 failures
+[billing] 8 examples, 0 failures
+[notifications] 5 examples, 0 failures
+[api] 21 examples, 0 failures
+
+4 package(s): 4 passed.
+```
+
+## Core concepts
+
+**Workspace** — A git repository containing multiple packages. The git root is the workspace root. No configuration file is needed; RWM finds the root via `git rev-parse --show-toplevel`.
+
+**Package** — A directory inside `libs/` or `apps/` that contains a `Gemfile`. Each package is a self-contained Ruby gem with its own Gemfile, gemspec, Rakefile, and source code.
+
+**Libraries** (`libs/`) — Shared code. Libraries can depend on other libraries but never on applications.
+
+**Applications** (`apps/`) — Deployable units. Applications can depend on libraries but never on other applications.
+
+**Dependency graph** — A directed acyclic graph (DAG) built by parsing each package's Gemfile for `path:` dependencies. This graph drives task ordering, affected detection, and convention checks. It is cached at `.rwm/graph.json` and auto-rebuilt when any Gemfile changes.
+
+## Workspace layout
+
+```
+my-project/                # git root = workspace root
+├── libs/
+│   ├── auth/              # a library package
+│   │   ├── Gemfile
+│   │   ├── auth.gemspec
+│   │   ├── Rakefile
+│   │   └── lib/auth.rb
+│   └── billing/
+│       └── ...
+├── apps/
+│   ├── api/               # an application package
+│   │   ├── Gemfile
+│   │   ├── api.gemspec
+│   │   ├── Rakefile
+│   │   └── app/api.rb
+│   └── web/
+│       └── ...
+├── Gemfile                # root Gemfile (rake, ruby_workspace_manager)
+├── Rakefile               # root Rakefile (bootstrap task, etc.)
+└── .rwm/                  # generated state (gitignored)
+    ├── graph.json         # serialized dependency graph
+    └── cache/             # task cache hashes
+```
+
+A directory is recognized as a package if it lives directly inside `libs/` or `apps/` and contains a `Gemfile`. Nested directories or directories without a Gemfile are ignored.
+
+The `.rwm/` directory is created automatically and should be gitignored. It stores the dependency graph cache and task cache state.
+
+## Managing packages
+
+### Scaffolding
+
+```sh
+rwm new lib <name>
+rwm new app <name>
+```
+
+Package names must match `/\A[a-z][a-z0-9_]*\z/` (lowercase, letters/digits/underscores, starts with a letter).
+
+The scaffold includes:
+
+- **Gemfile** — Sources rubygems.org, loads the gemspec, includes development dependencies (`rake`, `rspec`, `ruby_workspace_manager`), and requires `rwm/gemfile` for the `rwm_lib` helper.
+- **Gemspec** — Minimal spec. Libraries use `require_paths = ["lib"]` and declare `spec.files`; applications use `require_paths = ["app"]` and omit `spec.files`.
+- **Rakefile** — A `cacheable_task :spec` (from `rwm/rake`) plus an empty `:bootstrap` task for custom setup.
+- **Source file** — `lib/<name>.rb` for libraries, `app/<name>.rb` for applications. Module stub.
+- **spec/spec_helper.rb** — Minimal RSpec configuration.
+
+### Inspecting and listing
+
+```sh
+rwm info auth     # type, path, dependencies, direct/transitive dependents
+rwm list          # formatted table of all packages
+```
+
+## Dependencies between packages
+
+### How dependency detection works
+
+RWM reads each package's Gemfile using Bundler's DSL parser and extracts gems declared with a `path:` option pointing into the workspace. It does not scan source code for `require` statements. This means Bundler's Gemfile is the single source of truth for both runtime resolution and RWM's dependency graph.
+
+### The `rwm_lib` helper
+
+Scaffolded packages include `require "rwm/gemfile"` in their Gemfile, which adds the `rwm_lib` method to Bundler's DSL:
+
+```ruby
+# libs/billing/Gemfile
+require "rwm/gemfile"
+
+rwm_lib "auth"
+```
+
+This expands to:
+
+```ruby
+gem "auth", path: "/absolute/path/to/libs/auth"
+```
+
+The workspace root is resolved via `git rev-parse --show-toplevel`, so it works regardless of where you run the command. You can pass any extra options that `gem` accepts:
+
+```ruby
+rwm_lib "auth", require: false
+```
+
+There is no `rwm_app` helper. Applications are leaf nodes — nothing should depend on them.
+
+You can also use raw `gem ... path:` syntax directly. Both work identically for dependency detection.
+
+### Transitive resolution
+
+When you call `rwm_lib "auth"`, RWM automatically resolves auth's own workspace dependencies. If auth's Gemfile declares `rwm_lib "core"`, then `core` is added to your bundle automatically.
+
+This works recursively. Diamond dependencies and cycles are handled safely (each lib is resolved at most once).
+
+```ruby
+# apps/web/Gemfile — only the direct dep is needed
+require "rwm/gemfile"
+
+rwm_lib "auth"    # core (auth's dep) is added automatically
+```
+
+Transitive resolution uses `Bundler::Dsl.eval_gemfile` — the same mechanism Bundler uses internally. Options passed to the direct `rwm_lib` call (like `group:` or `require:`) are not forwarded to transitive deps.
+
+## The dependency graph
+
+### Building
+
+```sh
+rwm graph
+```
+
+Parses every package's Gemfile, constructs a DAG using Ruby's `TSort` module (Tarjan's algorithm), writes it to `.rwm/graph.json`, and prints a summary.
+
+### Caching and staleness
+
+Most commands (`run`, `list`, `check`, `affected`, `info`) load the graph from `.rwm/graph.json` rather than re-parsing Gemfiles. If any package's Gemfile has a modification time newer than the cache file, the graph is silently rebuilt. You rarely need to run `rwm graph` manually.
+
+Concurrent `rwm` processes are safe — graph reads use shared file locks and writes use exclusive file locks.
+
+### Visualization
+
+```sh
+rwm graph --dot      # Graphviz DOT format
+rwm graph --mermaid  # Mermaid flowchart format
+```
+
+Pipe DOT output to Graphviz to render an image:
+
+```sh
+rwm graph --dot | dot -Tpng -o graph.png
+```
+
+Or paste Mermaid output into any Mermaid-compatible renderer (GitHub markdown, Mermaid Live Editor, etc.).
+
+## Running tasks
+
+### Basic usage
+
+```sh
+rwm run <task>              # run in all packages
+rwm run <task> <package>    # run in one package
+rwm test                    # shortcut for `rwm run test`
+rwm lint auth               # shortcut for `rwm run lint auth`
+```
+
+Any command that isn't a built-in subcommand is treated as a task name and forwarded to `rwm run`.
+
+RWM runs `bundle exec rake <task>` in each package directory that has a Rakefile. Packages that don't define the requested task are automatically detected and silently skipped.
+
+### Parallel execution
+
+RWM uses a DAG scheduler with a thread pool. Each package starts executing the instant all of its dependencies have completed. If A and B are independent, they run simultaneously. If C depends on A, C starts as soon as A finishes — it does not wait for B.
+
+The default concurrency is `Etc.nprocessors` (number of CPU cores). Override with:
+
+```sh
+rwm run spec --concurrency 4
+```
+
+### Output modes
+
+**Streaming (default)** — Output is printed as it happens, prefixed with the package name:
+
+```
+[auth] 5 examples, 0 failures
+[billing] 3 examples, 0 failures
+```
+
+**Buffered** — Each package's output is collected and printed as a complete block when it finishes. Failed packages have their output sent to stderr:
+
+```sh
+rwm run spec --buffered
+```
+
+### Failure handling
+
+When a package fails, its transitive dependents are immediately skipped. Unrelated packages continue running. The exit code is 0 if all packages pass, 1 if any fail.
+
+## Task caching
+
+### Why caching matters
+
+In a monorepo with many packages, most runs touch only a few. Without caching, `rwm test` re-runs everything even if nothing changed. Task caching skips packages whose inputs are unchanged.
+
+### Content-hash caching
+
+RWM's cache is inspired by [DJB's redo](https://cr.yp.to/redo.html). The core insight: **use content hashes, not timestamps, to decide what needs rebuilding.** Timestamps are fragile — `git checkout` changes them, rebasing rewrites them. Content hashes are deterministic: if the bytes haven't changed, the result is still valid.
+
+For each (package, task) pair, RWM:
+
+1. **Computes a content hash** — SHA256 of all source files in the package (sorted by path), plus the content hashes of all dependency packages.
+2. **Compares with stored hash** — If the hash matches the last successful run and declared outputs exist, the task is skipped.
+3. **Stores on success** — After a successful run, the hash is saved to `.rwm/cache/<package>-<task>`.
+
+Source files are discovered via `git ls-files` (tracked + untracked-but-not-ignored), so anything in `.gitignore` is excluded from the hash.
+
+### Transitive invalidation
+
+A package's content hash includes the content hashes of its dependencies, recursively:
+
+```
+hash(auth)    = SHA256(auth's files)
+hash(billing) = SHA256(billing's files + hash(auth))
+hash(api)     = SHA256(api's files + hash(billing) + hash(auth))
+```
+
+Change a single file in `auth` and the hashes of `billing` and `api` change automatically. No explicit invalidation logic needed.
+
+### Where the cache is coarser than redo
+
+True redo tracks exactly which files a build step read during execution. RWM hashes every git-tracked file in the package directory. This means editing a README invalidates the spec cache even though RSpec never reads it.
+
+This is a deliberate tradeoff. File-level read tracking would require filesystem interception (`strace`, `dtrace`, FUSE), which contradicts the zero-dependency philosophy. Package-level hashing may give false invalidations (unnecessary re-runs) but never false cache hits (skipping when it shouldn't).
+
+### Declaring cacheable tasks
+
+Tasks are only cached if declared with `cacheable_task` in the Rakefile:
+
+```ruby
+# libs/auth/Rakefile
+require "rwm/rake"
+
+cacheable_task :spec do
+  sh "bundle exec rspec"
+end
+
+cacheable_task :build, output: "pkg/*.gem" do
+  sh "gem build *.gemspec"
+end
+```
+
+`cacheable_task` creates a normal Rake task — it works like `task` when run directly. The caching metadata is only used when RWM orchestrates the run.
+
+The optional `output:` parameter declares a glob for expected output files. If declared outputs don't exist, the cache is invalid even if the input hash matches.
+
+Tasks declared with plain `task` always run unconditionally.
+
+### Bypassing the cache
+
+```sh
+rwm run spec --no-cache
+```
+
+### Sharing the cache in CI
+
+Cache entries are content hashes with no absolute paths or machine-specific data. They're portable. Restoring a stale cache is safe — stale entries won't match and the task re-runs.
+
+#### GitHub Actions
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Restore RWM cache
+        uses: actions/cache@v4
+        with:
+          path: .rwm/cache
+          key: rwm-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            rwm-${{ runner.os }}-
+
+      - name: Run specs
+        run: bundle exec rwm run spec --affected --committed
+```
+
+The `restore-keys` prefix match means feature branch runs restore the most recent cache from any prior run. Main branch CI saves a full cache after every merge; feature branches only re-run what changed.
+
+## Affected detection
+
+### What "affected" means
+
+When you change code on a feature branch, the affected packages are those you directly changed plus every package that depends on them, transitively. If you change `libs/auth/` and `libs/billing/` depends on `auth` and `apps/api/` depends on `billing`, all three are affected.
+
+### Viewing affected packages
+
+```sh
+rwm affected
+```
+
+### Running tasks on affected packages
+
+```sh
+rwm run spec --affected
+```
+
+This is the most useful command for feature branch CI. It combines affected detection with task execution — only affected packages are tested, in correct dependency order with full parallelism.
+
+### How change detection works
+
+RWM detects changes from three sources:
+
+1. **Committed changes** — `git diff --name-only <base>...HEAD`
+2. **Staged changes** — `git diff --name-only --cached`
+3. **Unstaged changes** — `git diff --name-only`
+
+Changed files are mapped to packages by path prefix. Use `--committed` to ignore staged and unstaged changes:
+
+```sh
+rwm run spec --affected --committed
+```
+
+### Root-level changes
+
+Files outside any package directory (like the root `Gemfile` or `Rakefile`) cause all packages to be marked as affected. This is a conservative default — root-level changes can affect the entire workspace.
+
+However, inert files are automatically excluded from triggering a full run. The following patterns are ignored by default:
+
+- `*.md`, `LICENSE*`, `CHANGELOG*`
+- `.github/**`, `.vscode/**`, `.idea/**`
+- `docs/**`, `.rwm/**`
+
+You can add custom patterns in `.rwm/affected_ignore` (one glob per line, `#` for comments).
+
+### Base branch auto-detection
+
+RWM detects the base branch by reading `git symbolic-ref refs/remotes/origin/HEAD`, falling back to checking for `main` or `master` locally. Override with:
+
+```sh
+rwm affected --base develop
+rwm run spec --affected --base develop
+```
+
+## Bootstrap and daily workflow
+
+### What bootstrap does
+
+`rwm bootstrap` gets a workspace into a working state:
+
+1. Runs `bundle install` in the workspace root.
+2. Runs `rake bootstrap` in the root (if defined — for binstubs, shared tooling, etc.).
+3. Installs git hooks (pre-push runs `rwm check`, post-commit rebuilds the graph on Gemfile changes).
+4. Runs `bundle install` in every package (in parallel).
+5. Runs `rake bootstrap` in packages that define it (in parallel).
+6. Builds and validates the dependency graph.
+7. Updates the `.code-workspace` file (if it exists).
+
+Both `rwm init` and `rwm bootstrap` are idempotent.
+
+### The bootstrap rake task
+
+Every scaffolded package includes an empty `bootstrap` task. This is where package-specific setup belongs:
+
+```ruby
+# libs/auth/Rakefile
+task :bootstrap do
+  sh "bin/rails db:setup" if File.exist?("bin/rails")
+  sh "cp config/credentials.example.yml config/credentials.yml" unless File.exist?("config/credentials.yml")
+end
+```
+
+Common uses: database setup, copying example config files, generating local certificates, compiling native extensions.
+
+The key property: `rwm bootstrap` runs every package's bootstrap task automatically. Developers don't need to know which packages have special setup — they run one command and everything is handled.
+
+### After cloning
+
+```sh
+git clone <repo>
+cd <repo>
+rwm bootstrap
+```
+
+Every package is installed, the graph is built, hooks are active, and the workspace is ready.
+
+### Daily workflow
+
+```sh
+git pull --rebase
+rwm bootstrap          # picks up any new packages or dependency changes
+git checkout -b my-feature
+# ... make changes ...
+rwm test               # run all specs
+rwm run spec --affected # or just the affected ones
+```
+
+The pre-push hook runs `rwm check` automatically. The post-commit hook rebuilds the graph when Gemfiles change.
+
+## Git hooks
+
+RWM installs two hooks during `rwm bootstrap`:
+
+- **pre-push** — Runs `rwm check` to validate conventions before pushing. Blocks the push on failure.
+- **post-commit** — Runs `rwm graph` if any Gemfile was changed in the commit. Keeps the cached graph in sync.
+
+### Overcommit integration
+
+If `.overcommit.yml` exists, RWM integrates with [Overcommit](https://github.com/sds/overcommit) — it merges hook configuration into the YAML file and creates executable hook scripts. Without Overcommit, RWM writes directly to `.git/hooks/`, appending to existing hooks rather than overwriting.
+
+## Convention enforcement
+
+```sh
+rwm check
+```
+
+Three rules:
+
+1. **No library depending on an application.** Libraries are shared building blocks and must not be coupled to deployment targets.
+2. **No application depending on another application.** Applications are independent deployment units. Shared code should be extracted into a library.
+3. **No circular dependencies.** Cycles make build ordering impossible and indicate tangled responsibilities.
+
+Exits 0 on pass, 1 on violation. The pre-push hook runs this automatically.
+
+## Rails and Zeitwerk
+
+Rails uses [Zeitwerk](https://github.com/fxn/zeitwerk) for autoloading. Zeitwerk overrides `Kernel#require`, so `require "auth"` in a controller will fail with a `LoadError` even though the gem is installed. The fix: require workspace libs before Zeitwerk starts.
+
+### Setup
+
+**1. Gemfile** — declare workspace deps with `rwm_lib`:
+
+```ruby
+# apps/web/Gemfile
+require "rwm/gemfile"
+
+source "https://rubygems.org"
+gemspec
+
+rwm_lib "auth"    # transitive deps resolved automatically
+```
+
+`ruby_workspace_manager` must be a runtime dependency (not in `:development` group) for Rails apps:
+
+```ruby
+# apps/web/web.gemspec
+spec.add_dependency "ruby_workspace_manager"
+```
+
+**2. application.rb** — require workspace libs before Rails loads:
+
+```ruby
+# apps/web/config/application.rb
+require_relative "boot"
+
+require "rwm/rails"
+Rwm.require_libs
+
+require "rails"
+require "action_controller/railtie"
+
+module Web
+  class Application < Rails::Application
+    config.load_defaults 8.0
+  end
+end
+```
+
+`Rwm.require_libs` requires exactly the libs that `rwm_lib` resolved in the Gemfile — direct and transitive. After this line, workspace libraries are loaded as plain Ruby modules. Zeitwerk takes over for the app's own code and never touches them.
+
+### Why this ordering matters
+
+The Rails boot sequence: `config/boot.rb` runs `Bundler.setup` (adds gems to load path) → `config/application.rb` (your code, then Rails) → `config/environment.rb` (Zeitwerk activates). `Rwm.require_libs` must run after Bundler.setup and before `require "rails"`.
+
+### What doesn't work
+
+- `require "auth"` inside a controller or model — Zeitwerk is already active.
+- Adding workspace libs to `config.autoload_paths` — they have their own structure.
+
+Non-Rails apps don't have this problem and can `require` workspace libs anywhere.
+
+## VSCode integration
+
+```sh
+rwm init --vscode
+```
+
+Generates a `.code-workspace` file that configures VSCode's multi-root workspace feature. Each package becomes a separate root folder in the sidebar. After initial creation, `rwm bootstrap` and `rwm new` keep the folder list updated automatically. Existing `settings`, `extensions`, `launch`, and `tasks` keys are preserved.
+
+## Shell completions
+
+RWM ships with completion scripts for Bash and Zsh that provide command, flag, and package name completion.
+
+### Bash
+
+Add to `.bashrc` or `.bash_profile`:
+
+```bash
+source "$(gem contents ruby_workspace_manager | grep rwm.bash)"
+```
+
+### Zsh
+
+Add to `.zshrc` (before `compinit`):
+
+```zsh
+fpath=($(gem contents ruby_workspace_manager | grep completions/rwm.zsh | xargs dirname) $fpath)
+autoload -Uz compinit && compinit
+```
+
+Both scripts dynamically discover package names by scanning `libs/` and `apps/`, so tab completion always reflects your current workspace.
+
+## Command reference
 
 | Command | Description |
 |---------|-------------|
-| `rwm init` | Initialize a workspace. |
-| `rwm bootstrap` | Install deps, build graph, install hooks, run bootstrap tasks. |
+| `rwm init [--vscode]` | Initialize a workspace. Creates dirs, Gemfile, Rakefile, .gitignore. Runs bootstrap. Idempotent. |
+| `rwm bootstrap` | Install deps, build graph, install hooks, run bootstrap tasks. Idempotent. |
 | `rwm new <app\|lib> <name>` | Scaffold a new package. |
-| `rwm graph` | Rebuild the dependency graph. `--dot` / `--mermaid` for visualization. |
-| `rwm run <task> [pkg]` | Run a Rake task across packages. Packages without the task are skipped. |
-| `rwm <task> [pkg]` | Any unknown command is a task shortcut: `rwm test` = `rwm run test`. |
-| `rwm run <task> --affected` | Run only on packages affected by current changes. |
-| `rwm check` | Validate conventions. |
+| `rwm info <name>` | Show package details: type, path, deps, dependents. |
+| `rwm graph [--dot\|--mermaid]` | Rebuild dependency graph. Optionally output DOT or Mermaid. |
+| `rwm check` | Validate conventions. Exit 0 on pass, 1 on failure. |
 | `rwm list` | List all packages. |
-| `rwm info <name>` | Show package details. |
-| `rwm affected` | Show affected packages. |
+| `rwm run <task> [pkg]` | Run a Rake task across packages. |
+| `rwm <task> [pkg]` | Task shortcut: `rwm test` = `rwm run test`. |
+| `rwm affected [--committed] [--base REF]` | Show affected packages. |
 | `rwm cache clean [pkg]` | Clear cached task results. |
+| `rwm help` | Show available commands. |
+| `rwm version` | Show version. |
 
-Shell completions for Bash and Zsh are included — see [GUIDE.md](GUIDE.md) for setup instructions.
+### `rwm run` flags
 
-See [GUIDE.md](GUIDE.md) for full usage documentation — dependencies, caching, affected detection, git hooks, design decisions, and more.
+| Flag | Description |
+|------|-------------|
+| `--affected` | Only run on packages affected by current changes. |
+| `--committed` | With `--affected`, only consider committed changes. |
+| `--base REF` | With `--affected`, compare against REF instead of auto-detected base. |
+| `--dry-run` | Show what would run without executing. |
+| `--no-cache` | Bypass task caching. Force all tasks to run. |
+| `--buffered` | Buffer output per-package and print on completion. |
+| `--concurrency N` | Limit parallel workers. Default: number of CPU cores. |
 
-## License
+## Design philosophy
 
-MIT
+**Zero runtime dependencies.** RWM depends only on Ruby's standard library and Bundler (which ships with Ruby). No Thor, no custom graph library — `TSort` from stdlib handles topological sorting. Installing RWM adds nothing to your dependency tree.
+
+**No configuration file.** The git root is the workspace root. Libraries go in `libs/`, applications go in `apps/`. The dependency graph comes from Gemfiles. The conventions are the configuration.
+
+**Delegation to Rake.** RWM does not invent a task system. It runs `bundle exec rake <task>` in each package. The Rakefile has full control over execution; RWM handles orchestration.
+
+**Content-hash caching over timestamps.** The cache uses SHA256 content hashes rather than file timestamps. Timestamps change on branch switches and rebases. Content hashes are deterministic. This is the same model that [redo](https://cr.yp.to/redo.html) and [Bazel](https://bazel.build/) use.
+
+## Resources
+
+- **[Nx](https://nx.dev)** — The JavaScript monorepo tool that inspired RWM's workspace model, affected detection, and task caching.
+- **[DJB's redo](https://cr.yp.to/redo.html)** — Build system that pioneered content-hash-based caching. RWM's task cache uses the same principle.
+- **[Bazel](https://bazel.build/)** — Google's build tool. RWM borrows content-addressable caching but trades Bazel's complexity for convention-over-configuration.
+- **[TSort](https://ruby-doc.org/stdlib/libdoc/tsort/rdoc/TSort.html)** — Ruby stdlib module implementing Tarjan's algorithm. Used for topological sorting and cycle detection.
+- **[Bundler](https://bundler.io/)** — RWM reads Gemfiles using Bundler's DSL parser and relies on Bundler's dependency resolution at runtime.
+- **[Overcommit](https://github.com/sds/overcommit)** — Git hook manager that RWM integrates with when present.
+- **[Lerna](https://lerna.js.org/)** — The original JavaScript monorepo tool. RWM's `bootstrap` command is inspired by `lerna bootstrap`.

@@ -12,6 +12,7 @@ module Rwm
 
         source "https://rubygems.org"
 
+        gem "rake"
         gem "ruby_workspace_manager"
       GEMFILE
 
