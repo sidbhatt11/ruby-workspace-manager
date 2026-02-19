@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "open3"
 require "optparse"
 
 module Rwm
@@ -30,7 +31,7 @@ module Rwm
       end
 
       def run
-        root = Dir.pwd
+        root = detect_git_root
 
         create_directories(root)
         create_gemfile(root)
@@ -51,6 +52,13 @@ module Rwm
       end
 
       private
+
+      def detect_git_root
+        out, _, status = Open3.capture3("git", "rev-parse", "--show-toplevel")
+        raise Rwm::Error, "Not inside a git repository. Run `git init` first." unless status.success?
+
+        out.chomp
+      end
 
       def parse_options
         OptionParser.new do |opts|

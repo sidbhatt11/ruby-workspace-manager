@@ -504,5 +504,41 @@ RSpec.describe "Commands" do
         end
       end
     end
+
+    it "initializes at git root even when run from a subdirectory" do
+      Dir.mktmpdir do |dir|
+        system("git", "init", "--quiet", "--initial-branch=main", dir, out: File::NULL, err: File::NULL)
+
+        subdir = File.join(dir, "some", "nested", "dir")
+        FileUtils.mkdir_p(subdir)
+
+        Dir.chdir(subdir) do
+          $stdout = StringIO.new
+          allow(Rwm::Commands::Bootstrap).to receive_message_chain(:new, :run).and_return(0)
+
+          result = described_class.new([]).run
+
+          $stdout = STDOUT
+          expect(result).to eq(0)
+          # Structure should be at git root, not in subdirectory
+          expect(File.directory?(File.join(dir, "libs"))).to be true
+          expect(File.directory?(File.join(dir, "apps"))).to be true
+          expect(File.exist?(File.join(dir, "Gemfile"))).to be true
+          expect(File.directory?(File.join(subdir, "libs"))).to be false
+        end
+      end
+    end
+
+    it "raises error when not inside a git repository" do
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          expect {
+            $stdout = StringIO.new
+            described_class.new([]).run
+          }.to raise_error(Rwm::Error, /git init/)
+          $stdout = STDOUT
+        end
+      end
+    end
   end
 end
