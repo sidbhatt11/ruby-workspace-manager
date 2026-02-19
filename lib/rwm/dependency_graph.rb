@@ -70,17 +70,17 @@ module Rwm
       return [] if @packages.empty?
 
       remaining = @packages.keys.dup
+      placed = Set.new
       levels = []
 
       until remaining.empty?
-        # Find packages whose deps are all already placed in earlier levels
-        placed = levels.flatten
         level = remaining.select do |name|
           dependencies(name).all? { |dep| placed.include?(dep) }
         end
 
         raise CycleError, [["Unable to resolve execution levels — possible cycle"]] if level.empty?
 
+        level.each { |name| placed.add(name) }
         levels << level.sort
         remaining -= level
       end
