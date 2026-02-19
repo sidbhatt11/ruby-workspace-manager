@@ -368,18 +368,37 @@ Tasks declared with plain `task` always run unconditionally.
 rwm run spec --no-cache
 ```
 
-### Sharing the cache in CI
+### Sharing the cache
 
-Cache entries are content hashes with no absolute paths or machine-specific data. They're portable. Restoring a stale cache is safe — stale entries won't match and the task re-runs.
+The `.rwm/` directory is gitignored by design — committing it would create constant merge conflicts as the cache and graph change with every task run. Instead, treat your main branch CI as the single source of truth and distribute the cache from there.
+
+Cache entries are content hashes with no absolute paths or machine-specific data. They're fully portable across machines. Restoring a stale cache is always safe — stale entries won't match and the task simply re-runs.
+
+**The pattern:**
+
+1. Main branch CI runs the full test suite, producing a complete `.rwm/` cache.
+2. Feature branch CI restores main's cache, then runs only `--affected` packages.
+3. Developer machines download the cache during `rwm bootstrap`, so new branches start pre-warmed.
+
+The result: feature branch CI and local development only run what actually changed.
 
 #### GitHub Actions
 
 ```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history needed for affected detection
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -390,16 +409,67 @@ jobs:
       - name: Restore RWM cache
         uses: actions/cache@v4
         with:
-          path: .rwm/cache
+          path: .rwm
           key: rwm-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            rwm-${{ runner.os }}-
+          restore-keys: rwm-${{ runner.os }}-
+
+      - name: Bootstrap
+        run: bundle exec rwm bootstrap
 
       - name: Run specs
-        run: bundle exec rwm run spec --affected --committed
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            bundle exec rwm run spec
+          else
+            bundle exec rwm run spec --affected --committed
+          fi
+
+      # Make cache available for local dev bootstrap
+      - name: Upload RWM cache
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwm-cache
+          path: .rwm/
+          retention-days: 30
 ```
 
-The `restore-keys` prefix match means feature branch runs restore the most recent cache from any prior run. Main branch CI saves a full cache after every merge; feature branches only re-run what changed.
+Key points:
+
+- **`fetch-depth: 0`** — Affected detection needs full git history to compare branches.
+- **`actions/cache`** — Caches created on the default branch are accessible to all feature branches. The `restore-keys` prefix picks up the most recent main cache automatically.
+- **Main runs everything**, populating a complete cache. Feature branches run only `--affected --committed` and skip anything already cached from main.
+- **`upload-artifact`** on main makes the cache downloadable for local dev bootstrap (see below).
+
+#### Local developer cache (optional)
+
+Add a cache download step to your root Rakefile so `rwm bootstrap` warms the local cache automatically:
+
+```ruby
+# Rakefile
+task :bootstrap do
+  restore_rwm_cache
+end
+
+def restore_rwm_cache
+  return if File.directory?(".rwm/cache")
+  return unless system("which gh > /dev/null 2>&1")
+
+  puts "Downloading RWM cache from CI..."
+  run_id = `gh run list --branch main --status success --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId'`.strip
+  if run_id.empty?
+    puts "No CI cache found. Skipping."
+    return
+  end
+
+  system("gh", "run", "download", run_id, "--name", "rwm-cache", "--dir", ".rwm")
+  puts File.directory?(".rwm/cache") ? "Cache restored." : "Cache download failed. Continuing without cache."
+end
+```
+
+This requires the [GitHub CLI](https://cli.github.com/) (`gh`). If the cache isn't available (first run, expired artifact, no `gh` installed), bootstrap continues normally and the cache builds from scratch.
+
+After cloning and running `rwm bootstrap`, developers have a warm cache. Creating a feature branch from main and running `rwm run spec --affected` skips unchanged packages immediately.
 
 ## Affected detection
 
