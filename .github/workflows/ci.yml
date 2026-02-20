@@ -39,20 +39,24 @@ jobs:
   test:
     needs: [security, analyze]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: ["3.2", "3.3", "3.4"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Ruby
+      - name: Set up Ruby ${{ matrix.ruby-version }}
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
 
       - name: Run specs
         run: bundle exec rspec
 
       - name: Upload coverage report
-        if: always()
+        if: always() && matrix.ruby-version == '3.4'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
