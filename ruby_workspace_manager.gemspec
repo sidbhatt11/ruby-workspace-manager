@@ -19,6 +19,8 @@ Gem::Specification.new do |spec|
   spec.executables = ["rwm"]
   spec.require_paths = ["lib"]
 
+  spec.add_dependency "tsort"
+
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
 end
