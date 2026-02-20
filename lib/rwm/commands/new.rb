@@ -128,7 +128,7 @@ module Rwm
         source_dir = type == "lib" ? "lib" : "app"
         lines.concat([
           "  spec.require_paths = [\"#{source_dir}\"]",
-          '  spec.required_ruby_version = ">= 3.4.0"',
+          '  spec.required_ruby_version = ">= 3.2.0"',
           'end',
           '',
         ])

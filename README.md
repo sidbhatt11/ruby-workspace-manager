@@ -1,6 +1,6 @@
 [![CI](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/sidbhatt11/ruby-workspace-manager/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/ruby_workspace_manager)](https://rubygems.org/gems/ruby_workspace_manager)
-![Ruby](https://img.shields.io/badge/Ruby-%3E%3D%203.4-red)
+![Ruby](https://img.shields.io/badge/Ruby-%3E%3D%203.2-red)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
 # RWM — Ruby Workspace Manager

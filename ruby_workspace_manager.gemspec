@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
                      "detects affected packages, and enforces structural conventions."
   spec.homepage = "https://github.com/sidbhatt11/ruby-workspace-manager"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.4.0"
+  spec.required_ruby_version = ">= 3.2.0"
 
   spec.files = Dir.glob("{bin,lib,completions}/**/*") + %w[LICENSE.txt README.md]
   spec.bindir = "bin"
