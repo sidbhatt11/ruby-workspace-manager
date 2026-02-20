@@ -2,18 +2,9 @@
 
 Items to investigate and plan before implementing.
 
-## 1. Lower the Ruby version floor
+## ~~1. Lower the Ruby version floor~~ (Done)
 
-Currently requires Ruby >= 3.4.0. This cuts off a large chunk of potential users — many production Ruby shops are on 3.1, 3.2, or 3.3 and don't upgrade quickly.
-
-**What to investigate:**
-- Audit the codebase for 3.4-specific syntax or APIs (e.g., `it` as block parameter, pattern matching refinements, `frozen_string_literal` behavior changes)
-- Check if any gem dependencies or stdlib features we use were introduced in 3.4
-- Determine the lowest Ruby version we can reasonably support without rewriting significant code
-- Run the test suite against 3.1, 3.2, and 3.3 to see what breaks
-- Update CI matrix to test against all supported versions
-
-**Goal:** Support Ruby >= 3.1 (or the lowest feasible version) to maximize adoption. 3.1 is still in maintenance, 3.2+ is actively supported.
+Lowered from 3.4 to 3.2. CI passes on 3.2, 3.3, 3.4, and 4.0 with no code changes.
 
 ## 2. Railtie for automatic Zeitwerk integration
 
