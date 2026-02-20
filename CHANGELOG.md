@@ -4,6 +4,12 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-20
+
+### Changed
+- Lowered Ruby version floor from 3.4 to 3.2 — no code changes needed, CI passes on 3.2, 3.3, 3.4, and 4.0
+- CI now tests against Ruby 3.2, 3.3, 3.4, and 4.0
+
 ## [0.6.0] - 2026-02-20
 
 ### Added
@@ -110,7 +116,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.3.0...v0.4.0
