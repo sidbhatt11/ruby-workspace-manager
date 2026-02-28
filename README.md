@@ -562,6 +562,8 @@ If the provided `--base` ref doesn't exist, RWM errors immediately instead of si
 
 Both `rwm init` and `rwm bootstrap` are idempotent.
 
+**Note on parallel installs:** Step 4 runs `bundle install` concurrently across packages. If your packages share a gem installation directory (the default), you may see Bundler log `Waiting for another process to let go of lock`. This is normal — Bundler serializes writes to the shared directory automatically. On large monorepos with many packages, this can slow down bootstrap. If this becomes a bottleneck, consider using `BUNDLE_PATH` per-package or running bootstrap sequentially.
+
 ### The bootstrap rake task
 
 Every scaffolded package includes an empty `bootstrap` task. This is where package-specific setup belongs:
