@@ -6,18 +6,38 @@ Items to investigate and plan before implementing.
 
 Lowered from 3.4 to 3.2. CI passes on 3.2, 3.3, 3.4, and 4.0 with no code changes.
 
-## 2. Railtie for automatic Zeitwerk integration
+## ~~2. Railtie for automatic Zeitwerk integration~~ (Partially resolved)
 
-Currently, Rails users must manually edit `config/application.rb` to add `require "rwm/rails"` and `Rwm.require_libs` before `require "rails"`. This is documented but easy to get wrong — the ordering is fragile and the failure mode (Zeitwerk `LoadError`) is confusing.
+The original problem — manual `Rwm.require_libs` before `require "rails"` — turned out to be a documentation error. Empirical testing (v0.6.2) proved that `Bundler.require` already auto-requires workspace libs, including transitive deps. The docs and missing entry point have been fixed.
+
+**What a Railtie could still provide: automatic `config.autoload_paths` for Zeitwerk dev reloading.**
+
+Currently, if a user wants Zeitwerk to manage a workspace lib (for hot reloading in development), they must manually configure it per lib in their Rails app:
+
+```ruby
+# apps/web/Gemfile
+rwm_lib "auth", require: false
+
+# apps/web/config/application.rb
+config.autoload_paths << Rwm.lib_path("auth")
+config.eager_load_paths << Rwm.lib_path("auth")
+```
+
+A Railtie could automate this: detect which workspace libs have `require: false` and add their paths to the autoloader automatically.
 
 **What to investigate:**
-- Can a Railtie's `before_configuration` or `before_initialize` hook run early enough (before Zeitwerk activates) to require workspace libs?
-- If not, can we use a Bundler plugin or `require` hook that fires during `Bundler.setup`?
-- Look at how other gems solve the "must load before Zeitwerk" problem
-- Determine if we can detect workspace libs automatically from `Rwm.resolved_libs` without any user code in `application.rb`
-- Consider backwards compatibility — the manual approach should still work for users who prefer explicit control
+- Can the Railtie read Bundler's dependency metadata to find which workspace libs have `require: false`?
+- Should this be driven by Gemfile options (`rwm_lib "auth", require: false`) or by a separate config (`config.rwm.zeitwerk_libs = %w[auth]`)?
+- The lib must follow Zeitwerk conventions (no `require_relative` for sub-files). How do we validate or warn about this?
+- `require: false` applies globally — a non-Rails consumer of the same lib would need to handle loading differently. Is this acceptable?
+- Should `rwm new lib` gain a `--zeitwerk` flag that scaffolds the lib in Zeitwerk-compatible style (no `require_relative`)?
 
-**Goal:** `gem "ruby_workspace_manager"` in the Gemfile is all a Rails app needs. No manual `application.rb` edits. Workspace libs are required automatically at the right point in the boot sequence.
+**Constraints discovered during v0.6.2 investigation:**
+- A lib cannot be both loaded by `Bundler.require` AND in `config.autoload_paths` — double-load conflict
+- Files loaded by `require_relative` survive in `$LOADED_FEATURES` across Zeitwerk reload cycles, causing `NameError` after reload — libs in autoload_paths must not use `require_relative`
+- Multiple Zeitwerk loaders coexist fine (Rails' + gems'), but each must manage a distinct file tree
+
+**Goal:** A Railtie that automatically adds Zeitwerk-opted workspace libs to `config.autoload_paths`, so the user only needs `rwm_lib "auth", require: false` in the Gemfile and nothing in `application.rb`.
 
 ## 3. `rwm exec` — run arbitrary commands across packages
 
