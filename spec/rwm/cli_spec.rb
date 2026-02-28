@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
 
 RSpec.describe Rwm::CLI do
   describe ".run" do
@@ -129,6 +130,43 @@ RSpec.describe Rwm::CLI do
       expect(result).to eq(1)
       # Verbose mode was set, so debug would have been called with backtrace
       expect(Rwm.verbose?).to be true
+    end
+  end
+
+  describe "bin/rwm process exit codes" do
+    let(:bin_path) { File.expand_path("../../bin/rwm", __dir__) }
+
+    def run_rwm(*args, chdir: nil)
+      env = { "BUNDLE_GEMFILE" => nil }
+      opts = {}
+      opts[:chdir] = chdir if chdir
+      Open3.capture3(env, RbConfig.ruby, bin_path, *args, **opts)
+    end
+
+    it "exits 0 for --help" do
+      _, _, status = run_rwm("--help")
+      expect(status.exitstatus).to eq(0)
+    end
+
+    it "exits 0 for --version" do
+      _, _, status = run_rwm("--version")
+      expect(status.exitstatus).to eq(0)
+    end
+
+    it "exits 1 when a command fails" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { core: { type: :lib } })
+        _, _, status = run_rwm("info", "nonexistent", chdir: dir)
+        expect(status.exitstatus).to eq(1)
+      end
+    end
+
+    it "exits 1 when run is given no task" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { core: { type: :lib } })
+        _, _, status = run_rwm("run", chdir: dir)
+        expect(status.exitstatus).to eq(1)
+      end
     end
   end
 
