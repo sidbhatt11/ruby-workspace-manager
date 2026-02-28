@@ -4,6 +4,20 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-28
+
+### Fixed
+- Corrected "Rails and Zeitwerk" documentation — `Bundler.require` already auto-requires workspace libs (including transitive deps); manual `Rwm.require_libs` before `require "rails"` was never necessary for standard Rails apps
+- Corrected inaccurate claim that Zeitwerk overrides `Kernel#require` — it uses `Module#autoload` and `const_missing`
+- Created missing `lib/ruby_workspace_manager.rb` entry point so `Bundler.require` can auto-load the gem
+- `Rwm.require_libs` is now idempotent — safe to call multiple times without double-loading
+
+### Added
+- `Rwm.workspace_root` — module-level accessor, cached during Gemfile evaluation
+- `Rwm.lib_path(name)` — returns the load path for a workspace lib (e.g. for `config.autoload_paths` in Rails)
+- `Rwm.libs_required?` — predicate to check if workspace libs have been loaded
+- Comprehensive Rails guide in README covering traditional vs Zeitwerk-compatible lib structure, the practical extraction workflow, and trade-offs for each approach
+
 ## [0.6.1] - 2026-02-20
 
 ### Changed
@@ -116,7 +130,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.4.0...v0.5.0
