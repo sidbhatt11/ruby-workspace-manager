@@ -310,6 +310,15 @@ rwm run spec --buffered
 
 When a package fails, its transitive dependents are immediately skipped. Unrelated packages continue running. The exit code is 0 if all packages pass, 1 if any fail.
 
+The summary distinguishes between skip reasons:
+
+```
+5 package(s): 2 passed, 1 failed, 1 skipped (dep failed), 1 skipped (no task).
+```
+
+- **skipped (dep failed)** — a dependency failed, so this package was not attempted
+- **skipped (no task)** — the package's Rakefile doesn't define the requested task
+
 ## Task caching
 
 ### Why caching matters

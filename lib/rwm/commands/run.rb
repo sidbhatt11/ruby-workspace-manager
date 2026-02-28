@@ -100,21 +100,25 @@ module Rwm
 
         passed = runner.results.count(&:passed?)
         failed_results = runner.results.select { |r| r.failed? || r.errored? }
-        skipped = runner.results.count { |r| r.skipped? || r.dep_skipped? }
+        no_task = runner.results.count(&:skipped?)
+        dep_failed = runner.results.count(&:dep_skipped?)
 
         total = runner.results.size
         parts = []
         parts << "#{passed} passed" unless passed.zero?
         parts << "#{failed_results.size} failed" unless failed_results.empty?
-        parts << "#{skipped} skipped" unless skipped.zero?
+        parts << "#{dep_failed} skipped (dep failed)" unless dep_failed.zero?
+        parts << "#{no_task} skipped (no task)" unless no_task.zero?
 
         puts
         puts "#{total} package(s): #{parts.join(", ")}."
 
         passed_results = runner.results.select(&:passed?)
-        skipped_results = runner.results.select { |r| r.skipped? || r.dep_skipped? }
+        no_task_results = runner.results.select(&:skipped?)
+        dep_skipped_results = runner.results.select(&:dep_skipped?)
         Rwm.debug("passed: #{passed_results.map(&:package_name).join(", ")}") unless passed_results.empty?
-        Rwm.debug("skipped (no matching task): #{skipped_results.map(&:package_name).join(", ")}") unless skipped_results.empty?
+        Rwm.debug("skipped (no matching task): #{no_task_results.map(&:package_name).join(", ")}") unless no_task_results.empty?
+        Rwm.debug("skipped (dep failed): #{dep_skipped_results.map(&:package_name).join(", ")}") unless dep_skipped_results.empty?
 
         if failed_results.empty?
           0

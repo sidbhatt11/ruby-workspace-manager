@@ -466,7 +466,7 @@ RSpec.describe "Commands" do
         text = output.string
         expect(text).to include("2 package(s):")
         expect(text).to include("1 passed")
-        expect(text).to include("1 skipped")
+        expect(text).to include("1 skipped (no task)")
       end
     end
 
@@ -487,7 +487,7 @@ RSpec.describe "Commands" do
         expect(result).to eq(1)
         text = output.string + stderr.string
         expect(text).to include("1 failed")
-        expect(text).to include("1 skipped")
+        expect(text).to include("1 skipped (dep failed)")
         # Only auth should be listed as failed, not api
         expect(text).to include("Failed:")
         expect(text).to include("auth")
