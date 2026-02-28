@@ -17,9 +17,24 @@ require "set"
 
 module Rwm
   @resolved_libs = Set.new
+  @workspace_root = nil
 
   def self.resolved_libs
     @resolved_libs
+  end
+
+  def self.workspace_root
+    @workspace_root
+  end
+
+  def self.workspace_root=(path)
+    @workspace_root = path
+  end
+
+  def self.lib_path(name)
+    raise "rwm: workspace root not set (was rwm_lib used in the Gemfile?)" unless @workspace_root
+
+    File.join(@workspace_root, "libs", name.to_s, "lib")
   end
 
   module GemfileDsl
@@ -28,6 +43,7 @@ module Rwm
         out, _, status = Open3.capture3("git", "rev-parse", "--show-toplevel")
         root = status.success? ? out.strip : ""
         raise "rwm: not inside a git repository" if root.empty?
+        Rwm.workspace_root ||= root
         root
       end
     end

@@ -234,4 +234,38 @@ RSpec.describe Rwm::GemfileDsl do
     end
   end
 
+  describe "Rwm.workspace_root caching" do
+    before { Rwm.workspace_root = nil }
+    after  { Rwm.workspace_root = nil }
+
+    it "caches workspace root at the module level during rwm_workspace_root" do
+      root = dsl.rwm_workspace_root
+      expect(Rwm.workspace_root).to eq(root)
+    end
+
+    it "does not overwrite an existing module-level value" do
+      Rwm.workspace_root = "/already/set"
+      dsl.rwm_workspace_root
+      expect(Rwm.workspace_root).to eq("/already/set")
+    end
+  end
+
+  describe "Rwm.lib_path" do
+    before { Rwm.workspace_root = "/workspace" }
+    after  { Rwm.workspace_root = nil }
+
+    it "returns the lib directory for a given library name" do
+      expect(Rwm.lib_path("auth")).to eq("/workspace/libs/auth/lib")
+    end
+
+    it "accepts symbols" do
+      expect(Rwm.lib_path(:auth)).to eq("/workspace/libs/auth/lib")
+    end
+
+    it "raises when workspace root is not set" do
+      Rwm.workspace_root = nil
+      expect { Rwm.lib_path("auth") }.to raise_error(RuntimeError, /workspace root not set/)
+    end
+  end
+
 end
