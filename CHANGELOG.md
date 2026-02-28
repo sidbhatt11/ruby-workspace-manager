@@ -4,6 +4,19 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-03-01
+
+### Fixed
+- Exit code always returned 0 even on failure — `bin/rwm` now propagates command return codes to the shell via `exit()`
+- `rwm_lib` silently ignored non-existent libraries — now raises a clear error if `libs/<name>` doesn't exist
+- `rwm affected --base <invalid-ref>` silently returned no affected packages — now raises `Rwm::Error` when the ref doesn't exist
+- Task run summary now distinguishes "skipped (dep failed)" from "skipped (no task)" instead of combining them
+
+### Added
+- Subprocess-level tests for `bin/rwm` exit codes
+- Default `rwm graph` output now lists each package with its dependencies (when no `--dot`/`--mermaid` flag is given)
+- Documentation for Bundler lock contention during parallel bootstrap
+
 ## [0.6.2] - 2026-02-28
 
 ### Fixed
@@ -134,7 +147,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.5.0...v0.6.0
