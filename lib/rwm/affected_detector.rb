@@ -24,6 +24,7 @@ module Rwm
       @graph = graph
       @committed_only = committed_only
       @base_branch = base_branch || detect_base_branch
+      validate_base_branch! if base_branch
     end
 
     # Returns packages directly changed + their transitive dependents
@@ -56,6 +57,13 @@ module Rwm
     end
 
     private
+
+    def validate_base_branch!
+      _, _, status = Open3.capture3("git", "-C", workspace.root, "rev-parse", "--verify", "#{@base_branch}^{commit}")
+      return if status.success?
+
+      raise Rwm::Error, "Base ref '#{@base_branch}' does not exist. Check the branch name or pass a valid --base ref."
+    end
 
     def detect_base_branch
       # Try to read the remote's default branch

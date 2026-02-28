@@ -44,12 +44,27 @@ RSpec.describe Rwm::AffectedDetector do
     it "uses provided base_branch and skips auto-detection" do
       Dir.mktmpdir do |dir|
         setup_git_workspace(dir, packages: { auth: { type: :lib } })
+        # Create the develop branch so it's a valid ref
+        system("git", "-C", dir, "branch", "develop", out: File::NULL, err: File::NULL)
 
         workspace = Rwm::Workspace.find(dir)
         graph = Rwm::DependencyGraph.build(workspace)
         detector = described_class.new(workspace, graph, base_branch: "develop")
 
         expect(detector.base_branch).to eq("develop")
+      end
+    end
+
+    it "raises when provided base_branch does not exist" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir, packages: { auth: { type: :lib } })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        expect {
+          described_class.new(workspace, graph, base_branch: "nonexistent")
+        }.to raise_error(Rwm::Error, /Base ref 'nonexistent' does not exist/)
       end
     end
 

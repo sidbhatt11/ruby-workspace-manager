@@ -535,6 +535,8 @@ rwm affected --base develop
 rwm run spec --affected --base develop
 ```
 
+If the provided `--base` ref doesn't exist, RWM errors immediately instead of silently returning no affected packages.
+
 ## Bootstrap and daily workflow
 
 ### What bootstrap does
