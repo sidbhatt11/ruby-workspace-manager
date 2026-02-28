@@ -24,28 +24,42 @@ RSpec.describe Rwm::GemfileDsl do
   end
 
   describe "#rwm_lib" do
+    let(:tmpdir) { Dir.mktmpdir("rwm-gemfile-dsl") }
+    let(:root) { tmpdir }
+
+    before do
+      allow(dsl).to receive(:rwm_workspace_root).and_return(root)
+      allow(dsl).to receive(:gem)
+      FileUtils.mkdir_p(File.join(root, "libs", "auth"))
+    end
+
+    after { FileUtils.rm_rf(tmpdir) }
+
     it "calls gem with the correct path under libs/" do
-      root = dsl.rwm_workspace_root
       expected_path = File.join(root, "libs", "auth")
 
-      expect(dsl).to receive(:gem).with("auth", path: expected_path)
       dsl.rwm_lib("auth")
+      expect(dsl).to have_received(:gem).with("auth", path: expected_path)
     end
 
     it "accepts string or symbol names" do
-      root = dsl.rwm_workspace_root
       expected_path = File.join(root, "libs", "auth")
 
-      expect(dsl).to receive(:gem).with("auth", path: expected_path)
       dsl.rwm_lib(:auth)
+      expect(dsl).to have_received(:gem).with("auth", path: expected_path)
+    end
+
+    it "raises when the library directory does not exist" do
+      expect { dsl.rwm_lib("nonexistent") }.to raise_error(
+        RuntimeError, /rwm_lib 'nonexistent': no library found at libs\/nonexistent/
+      )
     end
 
     it "passes extra options through to gem" do
-      root = dsl.rwm_workspace_root
       expected_path = File.join(root, "libs", "auth")
 
-      expect(dsl).to receive(:gem).with("auth", group: :development, path: expected_path)
       dsl.rwm_lib("auth", group: :development)
+      expect(dsl).to have_received(:gem).with("auth", group: :development, path: expected_path)
     end
   end
 

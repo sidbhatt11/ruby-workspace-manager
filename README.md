@@ -211,6 +211,13 @@ rwm_lib "auth", require: false
 
 There is no `rwm_app` helper. Applications are leaf nodes — nothing should depend on them.
 
+`rwm_lib` validates that the library directory exists. If you reference a library that hasn't been created yet, you'll get a clear error:
+
+```
+rwm_lib 'payments': no library found at libs/payments.
+Libraries must live in libs/. Create one with: rwm new lib payments
+```
+
 You can also use raw `gem ... path:` syntax directly. Both work identically for dependency detection.
 
 ### Transitive resolution

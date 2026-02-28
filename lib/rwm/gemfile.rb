@@ -53,10 +53,16 @@ module Rwm
       @rwm_resolved ||= Set.new
       return if @rwm_resolved.include?(name)
 
+      path = File.join(rwm_workspace_root, "libs", name)
+
+      unless File.directory?(path)
+        raise "rwm_lib '#{name}': no library found at libs/#{name}. " \
+              "Libraries must live in libs/. Create one with: rwm new lib #{name}"
+      end
+
       @rwm_resolved.add(name)
       Rwm.resolved_libs.add(name) unless @rwm_scanning
 
-      path = File.join(rwm_workspace_root, "libs", name)
       gem(name, **opts, path: path)
 
       # Resolve transitive workspace deps from the target lib's Gemfile
