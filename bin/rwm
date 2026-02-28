@@ -3,4 +3,4 @@
 
 require "rwm"
 
-Rwm::CLI.run(ARGV)
+exit(Rwm::CLI.run(ARGV))
