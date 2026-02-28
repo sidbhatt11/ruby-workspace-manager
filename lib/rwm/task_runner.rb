@@ -73,6 +73,9 @@ module Rwm
             running[pkg.name] = Thread.new do
               begin
                 result = run_single(pkg, &command_proc)
+              rescue IOError
+                # Thread killed during I/O (Ctrl+C) — suppress noise
+                next
               rescue => e
                 result = Result.new(
                   package_name: pkg.name, task: "error",

@@ -103,13 +103,30 @@ module Rwm
       end
 
       Rwm.debug("graph: loading from cache at #{path}")
-      data = JSON.parse(read_locked(path))
+      begin
+        data = JSON.parse(read_locked(path))
+      rescue Errno::ENOENT
+        Rwm.debug("graph: cache file disappeared, rebuilding")
+        return build_and_save(workspace)
+      rescue JSON::ParserError
+        Rwm.debug("graph: cache file contains invalid JSON, rebuilding")
+        return build_and_save(workspace)
+      end
+
       graph = new
 
       workspace.packages.each { |pkg| graph.add_package(pkg) }
 
       data["edges"]&.each do |name, deps|
-        deps.each { |dep| graph.add_edge(name, dep) }
+        next unless graph.packages.key?(name)
+
+        deps.each do |dep|
+          if graph.packages.key?(dep)
+            graph.add_edge(name, dep)
+          else
+            Rwm.debug("graph: skipping stale edge #{name} -> #{dep} (package removed)")
+          end
+        end
       end
 
       graph

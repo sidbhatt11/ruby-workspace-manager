@@ -258,6 +258,35 @@ RSpec.describe Rwm::TaskCache do
     end
   end
 
+  describe "#content_hash thread safety" do
+    it "produces consistent results when called from multiple threads" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] }
+        })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        cache = described_class.new(workspace, graph)
+
+        billing = workspace.find_package("billing")
+        results = []
+        mutex = Mutex.new
+
+        threads = 10.times.map do
+          Thread.new do
+            hash = cache.content_hash(billing)
+            mutex.synchronize { results << hash }
+          end
+        end
+        threads.each(&:join)
+
+        expect(results.uniq.size).to eq(1)
+        expect(results.first).to match(/\A[0-9a-f]{64}\z/)
+      end
+    end
+  end
+
   describe "#content_hash with missing dependency" do
     it "raises PackageNotFoundError when a dependency is missing" do
       Dir.mktmpdir do |dir|

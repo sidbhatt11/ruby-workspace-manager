@@ -24,6 +24,7 @@ module Rwm
       @graph = graph
       @cache_dir = File.join(workspace.root, ".rwm", "cache")
       @content_hashes = {}
+      @content_hash_mutex = Mutex.new
       @cache_declarations = {}
       @declarations_mutex = Mutex.new
     end
@@ -78,7 +79,9 @@ module Rwm
 
     # Compute a content hash for a package: SHA256 of all source files + dependency hashes
     def content_hash(package)
-      return @content_hashes[package.name] if @content_hashes.key?(package.name)
+      @content_hash_mutex.synchronize do
+        return @content_hashes[package.name] if @content_hashes.key?(package.name)
+      end
 
       digest = Digest::SHA256.new
 
@@ -97,7 +100,10 @@ module Rwm
         digest.update(content_hash(dep_pkg))
       end
 
-      @content_hashes[package.name] = digest.hexdigest
+      computed = digest.hexdigest
+      @content_hash_mutex.synchronize do
+        @content_hashes[package.name] = computed
+      end
     end
 
     # Preload cache declarations for multiple packages in parallel.
@@ -123,17 +129,15 @@ module Rwm
     def cache_declarations(package)
       @declarations_mutex.synchronize do
         return @cache_declarations[package.name] if @cache_declarations.key?(package.name)
-      end
 
-      Rwm.debug("cache declarations: discovering for #{package.name}")
-      output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
-      result = if status.success? && !output.strip.empty?
-                 JSON.parse(output.strip)
-               else
-                 {}
-               end
+        Rwm.debug("cache declarations: discovering for #{package.name}")
+        output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
+        result = if status.success? && !output.strip.empty?
+                   JSON.parse(output.strip)
+                 else
+                   {}
+                 end
 
-      @declarations_mutex.synchronize do
         @cache_declarations[package.name] = result
       end
     rescue JSON::ParserError

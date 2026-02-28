@@ -11,6 +11,11 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - Corrected inaccurate claim that Zeitwerk overrides `Kernel#require` — it uses `Module#autoload` and `const_missing`
 - Created missing `lib/ruby_workspace_manager.rb` entry point so `Bundler.require` can auto-load the gem
 - `Rwm.require_libs` is now idempotent — safe to call multiple times without double-loading
+- Thread-safety: `TaskCache#content_hash` now uses a mutex to protect the memoization hash from concurrent access
+- Thread-safety: `TaskCache#cache_declarations` now holds the mutex through the entire check-compute-store cycle, preventing redundant subprocess calls under concurrency
+- `DependencyGraph.load` now gracefully handles deleted or corrupt `graph.json` (catches `Errno::ENOENT` and `JSON::ParserError`) and falls back to rebuilding instead of crashing
+- `DependencyGraph.load` now skips stale edges referencing packages that no longer exist in the workspace, instead of creating ghost entries in the graph
+- `TaskRunner` now suppresses `IOError` noise when threads are killed during Ctrl+C — previously printed confusing `stream closed in another thread` messages to stderr
 
 ### Added
 - `Rwm.workspace_root` — module-level accessor, cached during Gemfile evaluation

@@ -251,6 +251,81 @@ RSpec.describe Rwm::DependencyGraph do
     end
   end
 
+  describe ".load with deleted cache file" do
+    it "falls back to build when graph.json is deleted after existence check" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+
+        # Build and save a graph first
+        original = described_class.build(workspace)
+        original.save(workspace.graph_path, dir)
+
+        # Stub read_locked to raise ENOENT (simulating file deleted between check and read)
+        allow(described_class).to receive(:read_locked).and_raise(Errno::ENOENT)
+
+        loaded = described_class.load(workspace)
+        expect(loaded.packages.keys).to contain_exactly("auth", "billing")
+        expect(loaded.dependencies("billing")).to eq(["auth"])
+      end
+    end
+  end
+
+  describe ".load with corrupt cache file" do
+    it "falls back to build when graph.json contains invalid JSON" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+
+        # Write corrupt JSON to graph.json
+        graph_path = workspace.graph_path
+        FileUtils.mkdir_p(File.dirname(graph_path))
+        File.write(graph_path, "not valid json{{{")
+
+        loaded = described_class.load(workspace)
+        expect(loaded.packages.keys).to contain_exactly("auth", "billing")
+        expect(loaded.dependencies("billing")).to eq(["auth"])
+      end
+    end
+  end
+
+  describe ".load with stale edges" do
+    it "skips edges referencing packages that no longer exist" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          billing: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+
+        # Write a graph.json that references a deleted package
+        graph_path = workspace.graph_path
+        FileUtils.mkdir_p(File.dirname(graph_path))
+        File.write(graph_path, JSON.generate({
+          "version" => 1,
+          "packages" => {
+            "billing" => { "name" => "billing", "type" => "lib", "path" => "libs/billing" },
+            "auth" => { "name" => "auth", "type" => "lib", "path" => "libs/auth" }
+          },
+          "edges" => { "billing" => ["auth"] }
+        }))
+
+        loaded = described_class.load(workspace)
+        expect(loaded.packages.keys).to eq(["billing"])
+        expect(loaded.dependencies("billing")).to be_empty
+        expect(loaded.direct_dependents("auth")).to be_empty
+      end
+    end
+  end
+
   describe ".load with missing edges key" do
     it "handles JSON without edges key" do
       Dir.mktmpdir do |dir|
