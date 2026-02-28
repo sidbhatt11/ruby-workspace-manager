@@ -23,6 +23,15 @@ module Rwm
           puts graph.to_dot
         when :mermaid
           puts graph.to_mermaid
+        else
+          # Show a brief package listing when no format is requested
+          unless graph.packages.empty?
+            graph.packages.each_value do |pkg|
+              deps = graph.edges[pkg.name] || []
+              dep_str = deps.empty? ? "" : " → #{deps.join(", ")}"
+              puts "  #{pkg.type == "lib" ? "lib" : "app"}/#{pkg.name}#{dep_str}"
+            end
+          end
         end
 
         0
