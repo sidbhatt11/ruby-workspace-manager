@@ -2,12 +2,8 @@
 
 ## Bugs
 
-### 1. Exit code is always 0, even on failure (HIGH)
-- `rwm run spec` returns exit code 0 when tests fail
-- `rwm info nonexistent` returns exit code 0 with "Error: Package not found"
-- `rwm run spec nonexistent` also returns exit code 0
-- Docs claim "Exit code is 0 if all pass, 1 if any fail"
-- **Impact:** Breaks CI pipelines — a failing test suite won't fail the CI job
+### ~~1. Exit code is always 0, even on failure (HIGH)~~ FIXED
+- ~~Fixed in `bin/rwm` — was missing `exit()` call around `CLI.run`~~
 
 ### 2. `rwm_lib` silently ignores non-existent libs (MEDIUM)
 - `rwm_lib "api"` (an app, not a lib) generates `gem "api", path: ".../libs/api"` even though that path doesn't exist
