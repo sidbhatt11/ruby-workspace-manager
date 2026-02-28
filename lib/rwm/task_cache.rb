@@ -129,15 +129,17 @@ module Rwm
     def cache_declarations(package)
       @declarations_mutex.synchronize do
         return @cache_declarations[package.name] if @cache_declarations.key?(package.name)
+      end
 
-        Rwm.debug("cache declarations: discovering for #{package.name}")
-        output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
-        result = if status.success? && !output.strip.empty?
-                   JSON.parse(output.strip)
-                 else
-                   {}
-                 end
+      Rwm.debug("cache declarations: discovering for #{package.name}")
+      output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
+      result = if status.success? && !output.strip.empty?
+                 JSON.parse(output.strip)
+               else
+                 {}
+               end
 
+      @declarations_mutex.synchronize do
         @cache_declarations[package.name] = result
       end
     rescue JSON::ParserError
