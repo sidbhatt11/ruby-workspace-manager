@@ -649,9 +649,10 @@ That's it. `Bundler.require` loads `auth` and all of its transitive workspace de
 
 ### A note on Zeitwerk
 
-Zeitwerk does **not** override `Kernel#require`. It uses `Module#autoload` and `const_missing` to lazily load files from `config.autoload_paths`. A plain `require "auth"` (from `Bundler.require` or anywhere else) works normally at any point during the boot sequence — Zeitwerk does not intercept it.
+> [!IMPORTANT]
+> **Correction (v0.6.2):** Documentation in v0.6.1 and earlier incorrectly stated that Zeitwerk overrides `Kernel#require`. This was wrong. Zeitwerk uses `Module#autoload` and `const_missing` to lazily load files from `config.autoload_paths`. A plain `require "auth"` (from `Bundler.require` or anywhere else) works normally at any point during the boot sequence — Zeitwerk does not intercept it.
 
-### The practical workflow
+### The practical lib workflow
 
 **Develop inside your Rails app first.** While a feature is in active development, keep the code in your Rails app's `app/` directory where Zeitwerk gives you hot reloading for free. Change a file, refresh the page, see the result.
 
