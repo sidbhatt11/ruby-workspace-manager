@@ -5,33 +5,22 @@
 ### ~~1. Exit code is always 0, even on failure (HIGH)~~ FIXED
 - ~~Fixed in `bin/rwm` — was missing `exit()` call around `CLI.run`~~
 
-### 2. `rwm_lib` silently ignores non-existent libs (MEDIUM)
-- `rwm_lib "api"` (an app, not a lib) generates `gem "api", path: ".../libs/api"` even though that path doesn't exist
-- `rwm graph` and `rwm check` both silently pass
-- `bundle install` and `bundle exec` crash with a `Bundler::PathError`
-- Should error at graph/bootstrap time with a clear message like: "Unknown workspace lib: api"
+### ~~2. `rwm_lib` silently ignores non-existent libs (MEDIUM)~~ FIXED
+- ~~`rwm_lib` now validates that `libs/<name>` exists before generating the gem declaration~~
 
-### 3. `rwm affected --base <invalid-ref>` silently returns no affected packages (MEDIUM)
-- Using a non-existent base ref doesn't produce an error
-- Returns "No packages affected" which is misleading
-- A user could typo the base branch and skip all tests in CI
+### ~~3. `rwm affected --base <invalid-ref>` silently returns no affected packages (MEDIUM)~~ FIXED
+- ~~Now raises `Rwm::Error` when the provided `--base` ref doesn't exist~~
 
 ## Improvements
 
-### 4. `--dry-run` doesn't distinguish "would run" vs "would skip (no task)"
-- Packages without the requested Rake task are listed as "would run" even though they'd be skipped at runtime
-- Could confuse users wondering why the real run executed fewer packages than dry-run listed
+### ~~4. `--dry-run` doesn't distinguish "would run" vs "would skip (no task)"~~ WON'T FIX
+- ~~Dry-run runs before the task runner, so it can't know which Rakefiles define the task without executing them. This is inherent to the design.~~
 
-### 5. Failure summary should distinguish skip reasons
-- Currently: "5 package(s): 1 failed, 4 skipped"
-- 2 skipped because they lack the task, 2 skipped because a dependency failed — these are different
-- Suggested: "1 failed, 2 skipped (dep failed), 2 skipped (no task)"
+### ~~5. Failure summary should distinguish skip reasons~~ FIXED
+- ~~Summary now shows "skipped (dep failed)" vs "skipped (no task)"~~
 
-### 6. `rwm graph` output could be more informative on first build
-- Currently only prints "Graph saved to .rwm/graph.json (5 packages, 8 edges)"
-- Consider printing a quick summary of packages (like `rwm list`) on first build or when packages change
+### ~~6. `rwm graph` output could be more informative on first build~~ FIXED
+- ~~Default `rwm graph` now lists each package with its dependencies~~
 
-### 7. Bundler lock contention during parallel bootstrap
-- Saw `Waiting for another process to let go of lock` during `rwm bootstrap` with parallel installs
-- Expected with shared gem dirs but could be slow on larger monorepos
-- Consider documenting this or adding a `--concurrency` flag to bootstrap
+### ~~7. Bundler lock contention during parallel bootstrap~~ DOCUMENTED
+- ~~Added note in README explaining the behavior and workarounds~~
