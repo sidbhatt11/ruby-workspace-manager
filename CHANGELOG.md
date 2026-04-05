@@ -4,6 +4,28 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-04-05
+
+### Fixed
+- `cacheable_task` now supports Rake dependency syntax — `cacheable_task seed: :environment` works like `task` does ([#1](https://github.com/sidbhatt11/ruby-workspace-manager/issues/1))
+- `cacheable_task` replaces existing task actions instead of stacking — no more double spec runs with rspec-rails ([#2](https://github.com/sidbhatt11/ruby-workspace-manager/issues/2))
+- Default `rwm graph` output now correctly shows `lib/` prefix for libraries instead of `app/` for everything ([#3](https://github.com/sidbhatt11/ruby-workspace-manager/issues/3))
+- Task runner and cache declaration discovery now set `BUNDLE_GEMFILE` to the package's own Gemfile, preventing the root bundle environment from leaking into child processes
+
+### Added
+- Multi-package targeting — `rwm run spec auth billing` and `rwm spec auth billing` run on exactly those packages
+- Selective bootstrap — `rwm bootstrap auth billing` bootstraps named packages plus their transitive dependencies
+- `DependencyGraph#transitive_dependencies` — returns all packages a given package transitively depends on
+- `Rwm.bundle_env(dir)` helper for setting `BUNDLE_GEMFILE` when spawning child processes in package directories
+- Mutual exclusion between `--affected` and explicit package names (errors if both given)
+
+### Changed
+- `cacheable_task` signature changed from `(name, output:)` to `(*args, **opts)` to support all Rake task definition patterns
+- CLI help updated to show `[pkg...]` syntax for `run` and `bootstrap`
+- README restructured — concise intro/pitch linking to 7 focused docs in `docs/`
+- SECURITY.md rewritten with clearer versioning guidance
+- WORKFLOW.md updated to reflect documentation split
+
 ## [0.6.3] - 2026-03-01
 
 ### Fixed
@@ -147,7 +169,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 - CLI with `init`, `bootstrap`, `new`, `info`, `graph`, `check`, `list`, and `run` commands
 - Task shortcuts: `rwm test`, `rwm spec`, `rwm build`
 
-[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/sidbhatt11/ruby-workspace-manager/compare/v0.6.0...v0.6.1
