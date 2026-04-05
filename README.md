@@ -20,7 +20,7 @@ RWM discovers packages in your repository, builds a dependency graph from Gemfil
 **RWM is probably not for you if:**
 
 - You have a single app with no shared libraries. A standard Rails/Ruby project doesn't need monorepo tooling.
-- You need to publish packages to RubyGems or a private gem server as part of your workflow. RWM is a development and CI tool — it doesn't handle versioning or publishing.
+- You need built-in gem versioning and publishing workflows. RWM doesn't provide these out of the box, but you can write Rake tasks for `gem build` and `gem push` and orchestrate them with `rwm run` like any other task.
 - You need polyglot support (Ruby + JS + Go in one repo). Tools like [Bazel](https://bazel.build/) or [Nx](https://nx.dev) are better suited for that.
 - You're already using Bundler path gems with a simple shell script and don't need caching, affected detection, or convention enforcement. RWM's value comes from those features — if you don't need them, you don't need RWM.
 
