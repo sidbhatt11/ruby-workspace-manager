@@ -45,7 +45,19 @@ module Rwm
 end
 
 # Top-level DSL method available in Rakefiles
-def cacheable_task(name, output: nil, &block)
-  Rwm::RakeCache.register(name, output: output)
-  Rake::Task.define_task(name, &block)
+def cacheable_task(*args, **opts, &block)
+  output = opts.delete(:output)
+
+  # Remaining keyword opts are Rake dependency syntax (e.g. seed: :environment)
+  args << opts unless opts.empty?
+
+  # Resolve the task name using Rake's own parser (dup because resolve_args mutates)
+  task_name, = Rake.application.resolve_args(args.dup)
+
+  Rwm::RakeCache.register(task_name, output: output)
+
+  # Clear existing actions so we replace rather than stack (e.g. rspec-rails :spec)
+  Rake::Task[task_name].clear_actions if Rake::Task.task_defined?(task_name)
+
+  Rake::Task.define_task(*args, &block)
 end

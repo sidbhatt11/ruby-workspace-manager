@@ -31,6 +31,52 @@ RSpec.describe "cacheable_task DSL" do
       Rake::Task[:spec].invoke
       expect(executed).to be true
     end
+
+    it "supports Rake dependency syntax (hash arg)" do
+      cacheable_task(:setup) { }
+      cacheable_task(seed: :setup) { }
+
+      expect(Rake::Task.task_defined?(:seed)).to be true
+      expect(Rake::Task[:seed].prerequisites).to include("setup")
+      expect(Rwm::RakeCache.declarations).to include("seed" => { "output" => nil })
+    end
+
+    it "supports hash-rocket dependency syntax" do
+      cacheable_task(:setup) { }
+      cacheable_task(:seed => [:setup]) { }
+
+      expect(Rake::Task.task_defined?(:seed)).to be true
+      expect(Rake::Task[:seed].prerequisites).to include("setup")
+    end
+
+    it "supports output option with dependency syntax" do
+      cacheable_task(:setup) { }
+      cacheable_task(seed: :setup, output: "db/seed.log") { }
+
+      expect(Rwm::RakeCache.declarations["seed"]).to eq({ "output" => "db/seed.log" })
+      expect(Rake::Task[:seed].prerequisites).to include("setup")
+    end
+
+    it "replaces existing task actions instead of stacking" do
+      first_ran = false
+      second_ran = false
+
+      Rake::Task.define_task(:spec) { first_ran = true }
+      cacheable_task(:spec) { second_ran = true }
+
+      Rake::Task[:spec].invoke
+      expect(first_ran).to be false
+      expect(second_ran).to be true
+    end
+
+    it "preserves existing task prerequisites when replacing actions" do
+      Rake::Task.define_task(:setup) { }
+      Rake::Task.define_task(spec: :setup) { }
+
+      cacheable_task(:spec) { }
+
+      expect(Rake::Task[:spec].prerequisites).to include("setup")
+    end
   end
 
   describe "rwm:cache_config task" do
