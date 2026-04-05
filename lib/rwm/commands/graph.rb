@@ -29,7 +29,7 @@ module Rwm
             graph.packages.each_value do |pkg|
               deps = graph.edges[pkg.name] || []
               dep_str = deps.empty? ? "" : " → #{deps.join(", ")}"
-              puts "  #{pkg.type == "lib" ? "lib" : "app"}/#{pkg.name}#{dep_str}"
+              puts "  #{pkg.lib? ? "lib" : "app"}/#{pkg.name}#{dep_str}"
             end
           end
         end

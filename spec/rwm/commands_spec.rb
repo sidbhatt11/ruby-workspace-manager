@@ -162,6 +162,20 @@ RSpec.describe "Commands" do
         expect(output.string).to include("auth")
       end
     end
+
+    it "shows lib/ prefix for libs and app/ prefix for apps in default output" do
+      with_workspace(packages: { auth: { type: :lib }, api: { type: :app, deps: [:auth] } }) do
+        output = StringIO.new
+        $stdout = output
+
+        described_class.new([]).run
+
+        $stdout = STDOUT
+        expect(output.string).to include("lib/auth")
+        expect(output.string).to include("app/api")
+        expect(output.string).not_to include("app/auth")
+      end
+    end
   end
 
   describe Rwm::Commands::New do
