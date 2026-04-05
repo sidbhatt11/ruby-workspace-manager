@@ -78,9 +78,9 @@ The test suite is the source of truth for correctness:
 
 Documentation is treated as a first-class deliverable:
 
-- **README is the primary document.** It's comprehensive and kept in sync with the code. There is no separate guide or wiki — everything lives in the README.
+- **README is the entry point.** It covers core concepts and links to focused guides in `docs/`. Each doc covers one topic well.
 - **The CHANGELOG follows [Keep a Changelog](https://keepachangelog.com/) format.** Every release has a detailed entry with Added/Changed/Fixed sections.
-- **Code changes that affect user-facing behavior update the README in the same session.** Not "we'll document it later" — it happens immediately.
+- **Code changes that affect user-facing behavior update the relevant documentation in the same session.** Not "we'll document it later" — it happens immediately.
 - **The human proofreads documentation carefully.** The AI is good at generating comprehensive docs but can miss inconsistencies (e.g., using `rwm test` in examples when the default scaffold creates `spec`). The human catches these.
 
 ### 6. Releases
