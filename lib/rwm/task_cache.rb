@@ -132,7 +132,7 @@ module Rwm
       end
 
       Rwm.debug("cache declarations: discovering for #{package.name}")
-      output, _, status = Open3.capture3("bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
+      output, _, status = Open3.capture3(Rwm.bundle_env(package.path), "bundle", "exec", "rake", "rwm:cache_config", chdir: package.path)
       result = if status.success? && !output.strip.empty?
                  JSON.parse(output.strip)
                else

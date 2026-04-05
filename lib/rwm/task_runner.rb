@@ -154,7 +154,7 @@ module Rwm
       prefix = "[#{pkg.name}]"
       Rwm.debug("running: #{cmd.join(' ')} in #{pkg.path}")
 
-      stdout, stderr, status = Open3.capture3(*cmd, chdir: pkg.path)
+      stdout, stderr, status = Open3.capture3(Rwm.bundle_env(pkg.path), *cmd, chdir: pkg.path)
       output = format_output(prefix, stdout, stderr)
 
       # Detect "task not found" and treat as skipped, not failed

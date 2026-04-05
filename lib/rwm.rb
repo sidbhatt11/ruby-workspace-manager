@@ -18,6 +18,14 @@ module Rwm
     $stderr.puts "[rwm debug] #{msg}" if @verbose
   end
 
+  # Environment hash that points BUNDLE_GEMFILE at a specific directory's Gemfile.
+  # Pass as the first argument to Open3.capture3 or system() when spawning
+  # bundle commands in package directories, so the child process resolves
+  # against the package's Gemfile instead of inheriting the root's.
+  def self.bundle_env(dir)
+    { "BUNDLE_GEMFILE" => File.join(dir, "Gemfile") }
+  end
+
   autoload :Workspace,         "rwm/workspace"
   autoload :Package,           "rwm/package"
   autoload :GemfileParser,     "rwm/gemfile_parser"

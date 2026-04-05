@@ -25,6 +25,25 @@ RSpec.describe Rwm::TaskRunner do
   end
 
   describe "#run_command" do
+    it "sets BUNDLE_GEMFILE to the package's Gemfile in child processes" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        pkg = workspace.find_package("auth")
+
+        runner = described_class.new(graph, packages: [pkg])
+        runner.run_command { |p| ["ruby", "-e", "puts ENV['BUNDLE_GEMFILE']"] }
+
+        expect(runner.success?).to be true
+        expected_gemfile = File.join(pkg.path, "Gemfile")
+        expect(runner.results.first.output).to include(expected_gemfile)
+      end
+    end
+
     it "runs a command in each package" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: {

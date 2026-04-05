@@ -342,7 +342,7 @@ RSpec.describe Rwm::TaskCache do
 
         ok_status = instance_double(Process::Status, success?: true)
         allow(Open3).to receive(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: anything)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: anything)
           .and_return(['{"spec": {}}', "", ok_status])
 
         cache.preload_declarations(workspace.packages)
@@ -365,7 +365,7 @@ RSpec.describe Rwm::TaskCache do
 
         ok_status = instance_double(Process::Status, success?: true)
         allow(Open3).to receive(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
           .and_return(['{"spec": {}}', "", ok_status])
 
         cache.preload_declarations([pkg])
@@ -373,7 +373,7 @@ RSpec.describe Rwm::TaskCache do
         cache.cache_declarations(pkg)
 
         expect(Open3).to have_received(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
           .once
       end
     end
@@ -389,7 +389,7 @@ RSpec.describe Rwm::TaskCache do
         pkg = workspace.find_package("auth")
 
         allow(Open3).to receive(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
           .and_return(['{"spec": {}}', "", instance_double(Process::Status, success?: true)])
 
         result1 = cache.cache_declarations(pkg)
@@ -432,7 +432,7 @@ RSpec.describe Rwm::TaskCache do
         pkg = workspace.find_package("auth")
 
         allow(Open3).to receive(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
           .and_return(["", "error", instance_double(Process::Status, success?: false)])
 
         expect(cache.cache_declarations(pkg)).to eq({})
@@ -448,7 +448,7 @@ RSpec.describe Rwm::TaskCache do
         pkg = workspace.find_package("auth")
 
         allow(Open3).to receive(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
           .and_return(["not json{", "", instance_double(Process::Status, success?: true)])
 
         expect(cache.cache_declarations(pkg)).to eq({})
@@ -464,7 +464,7 @@ RSpec.describe Rwm::TaskCache do
         pkg = workspace.find_package("auth")
 
         allow(Open3).to receive(:capture3)
-          .with("bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
+          .with(hash_including("BUNDLE_GEMFILE"), "bundle", "exec", "rake", "rwm:cache_config", chdir: pkg.path)
           .and_return(["", "", instance_double(Process::Status, success?: true)])
 
         expect(cache.cache_declarations(pkg)).to eq({})
