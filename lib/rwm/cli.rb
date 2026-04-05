@@ -88,14 +88,14 @@ module Rwm
 
         Commands:
           init [--vscode]   Initialize a new rwm workspace
-          bootstrap         Install deps and run bootstrap tasks in all packages
+          bootstrap [pkg...] Install deps and run bootstrap (all if none given)
           new <type> <name> Scaffold a new app or lib
           info <name>       Show details about a package
           graph             Build and save the dependency graph
             --dot           Output in Graphviz DOT format
             --mermaid       Output in Mermaid format
           check             Validate dependency graph and conventions
-          run <task> [pkg]  Run a rake task across all (or one) package(s)
+          run <task> [pkg...]  Run a rake task across packages (all if none given)
           affected          Show packages affected by current changes
             --base REF      Compare against REF instead of auto-detected base
             --committed     Only consider committed changes
@@ -105,8 +105,8 @@ module Rwm
           version           Show version
 
         Any unrecognized command is treated as a task name:
-          rwm test          → rwm run test
-          rwm lint          → rwm run lint
+          rwm test              → rwm run test
+          rwm test auth billing → rwm run test auth billing
 
         Run options (for `rwm run` and task shortcuts):
           --affected        Only run on affected packages

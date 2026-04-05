@@ -5,6 +5,7 @@ module Rwm
     class Bootstrap
       def initialize(argv)
         @argv = argv
+        @package_names = argv.dup.uniq
       end
 
       def run
@@ -56,14 +57,31 @@ module Rwm
       end
 
       def bootstrap_packages(workspace, graph)
-        packages = workspace.packages
+        packages = if @package_names.any?
+                     # Validate all names, then expand to include transitive deps
+                     @package_names.each { |name| workspace.find_package(name) }
+                     all_names = Set.new(@package_names)
+                     @package_names.each do |name|
+                       graph.transitive_dependencies(name).each { |dep| all_names << dep }
+                     end
+                     all_names.map { |name| workspace.find_package(name) }
+                   else
+                     workspace.packages
+                   end
+
         if packages.empty?
           puts "==> No packages found. Skipping package bootstrap."
           return
         end
 
         # Step 1: bundle install in all packages (parallel by execution level)
-        puts "==> Installing gems in #{packages.size} package(s)..."
+        dep_count = packages.size - (@package_names.any? ? @package_names.uniq.size : 0)
+        label = if @package_names.any? && dep_count > 0
+                  "==> Installing gems in #{packages.size} package(s) (#{@package_names.join(", ")} + #{dep_count} dependencies)..."
+                else
+                  "==> Installing gems in #{packages.size} package(s)..."
+                end
+        puts label
         install_runner = TaskRunner.new(graph, packages: packages)
         install_runner.run_command do |pkg|
           ["bundle", "install"]
