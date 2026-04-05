@@ -33,31 +33,13 @@ A Railtie could automate this: detect which workspace libs have `require: false`
 
 **Goal:** A Railtie that automatically adds Zeitwerk-opted workspace libs to `config.autoload_paths`, so the user only needs `rwm_lib "auth", require: false` in the Gemfile and nothing in `application.rb`.
 
-## 2. `rwm exec` — run arbitrary commands across packages
+## ~~2. `rwm exec`~~ (Dropped)
 
-`rwm run` only runs Rake tasks. But a lot of ad-hoc monorepo work is just "run this command in every package" — `bundle outdated`, `ruby -v`, `wc -l lib/**/*.rb`, etc. Having to define a Rake task for each one-off command is friction.
+Shell loops cover ad-hoc commands; anything recurring deserves a Rake task with caching.
 
-**What to investigate:**
-- Command design: `rwm exec "bundle outdated"` or `rwm exec -- bundle outdated`? The `--` separator is more conventional for passing through arguments
-- Should it support all the same flags as `rwm run` (`--affected`, `--concurrency`, `--buffered`)?
-- Should it respect the dependency graph for ordering, or just run in parallel with no ordering? Probably no ordering needed since these are typically read-only/informational
-- Error handling: fail-fast vs. continue-on-error? Probably continue and summarize at the end
-- Caching: almost certainly no — exec commands are ad-hoc by nature
+## ~~3. Dependency version consistency checking~~ (Dropped)
 
-**Goal:** `rwm exec -- bundle outdated` runs the command in every package directory, with output prefixed by package name. Supports `--affected` and `--concurrency` for filtering and parallelism.
-
-## 3. Dependency version consistency checking
-
-A common monorepo pain point is version drift — one package pins `pg ~> 1.4` while another uses `pg ~> 1.5`. This silently bites you when packages are deployed together but were developed against different dependency versions. `rwm check` currently validates graph structure but doesn't look at gem versions.
-
-**What to investigate:**
-- Parse all package Gemfiles and Gemfile.locks for external gem versions
-- Define what "inconsistent" means: different version constraints for the same gem? Or different resolved versions in lockfiles?
-- Should this be part of `rwm check` (fail CI) or a separate `rwm audit` / `rwm versions` command (informational)?
-- How to handle intentional version differences (e.g., a package migrating to a newer version)?
-- Should there be an allowlist/ignorelist for known acceptable drift?
-
-**Goal:** Surface version inconsistencies across packages so teams can catch drift early. Likely a new flag on `rwm check` (e.g., `rwm check --versions`) so it integrates with the existing pre-push hook.
+Bundler already resolves deps per-app; an allowlist for intentional drift would add config against the zero-config philosophy.
 
 ## 4. Watch mode
 
@@ -72,26 +54,10 @@ A common monorepo pain point is version drift — one package pins `pg ~> 1.4` w
 
 **Goal:** `rwm watch spec` provides a fast TDD feedback loop — change a file in `auth`, specs for `auth` and its dependents re-run automatically.
 
-## 5. `rwm why <package>`
+## ~~5. `rwm why <package>`~~ (Dropped)
 
-When `rwm affected` flags a package you didn't expect, there's no way to understand why without mentally tracing the dependency graph. This is especially confusing in large workspaces with deep transitive chains.
+Covered by existing `rwm info` (shows deps, dependents, transitive dependents) and `rwm graph`.
 
-**What to investigate:**
-- Two use cases: "why is X affected?" (trace from changed files → package → dependents) and "why does X depend on Y?" (shortest path in the dependency graph)
-- Output format: a chain like `auth (changed) → billing (depends on auth) → api (depends on billing)`
-- Should it integrate with `rwm affected --why` or be a standalone `rwm why` command?
-- For dependency chains: use BFS on the graph to find the shortest path between two packages
+## ~~6. Selective bootstrap / multi-package targeting~~ (Done)
 
-**Goal:** `rwm why billing` explains "billing is affected because auth changed, and billing depends on auth." `rwm why api auth` shows the dependency path from api to auth.
-
-## 6. Selective bootstrap
-
-`rwm bootstrap` installs and sets up every package in the workspace. After adding a single dependency to one package, you shouldn't have to wait for the entire workspace to re-bootstrap.
-
-**What to investigate:**
-- `rwm bootstrap auth billing` — only run `bundle install` and `rake bootstrap` for the named packages (and their dependencies, transitively?)
-- Should it also install transitive dependents? If you bootstrap `auth` and `billing` depends on `auth`, should `billing` get a `bundle install` too?
-- How does this interact with the root-level bootstrap steps (root `bundle install`, hook installation, graph rebuild)?
-- Maybe: root steps always run, package steps are filtered. Or add a `--skip-root` flag
-
-**Goal:** `rwm bootstrap auth` installs deps and runs bootstrap for `auth` (and its dependencies) without touching unrelated packages. Root-level steps still run.
+Implemented multi-package targeting across `rwm run` and `rwm bootstrap`. `rwm run <task> pkg1 pkg2` runs on exactly those packages. `rwm bootstrap pkg1 pkg2` bootstraps those packages + transitive deps. Root steps always run.
