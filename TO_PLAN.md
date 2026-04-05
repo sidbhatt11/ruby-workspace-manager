@@ -2,13 +2,7 @@
 
 Items to investigate and plan before implementing.
 
-## ~~1. Lower the Ruby version floor~~ (Done)
-
-Lowered from 3.4 to 3.2. CI passes on 3.2, 3.3, 3.4, and 4.0 with no code changes.
-
-## ~~2. Railtie for automatic Zeitwerk integration~~ (Partially resolved)
-
-The original problem — manual `Rwm.require_libs` before `require "rails"` — turned out to be a documentation error. Empirical testing (v0.6.2) proved that `Bundler.require` already auto-requires workspace libs, including transitive deps. The docs and missing entry point have been fixed.
+## 1. Railtie for automatic Zeitwerk integration
 
 **What a Railtie could still provide: automatic `config.autoload_paths` for Zeitwerk dev reloading.**
 
@@ -39,7 +33,7 @@ A Railtie could automate this: detect which workspace libs have `require: false`
 
 **Goal:** A Railtie that automatically adds Zeitwerk-opted workspace libs to `config.autoload_paths`, so the user only needs `rwm_lib "auth", require: false` in the Gemfile and nothing in `application.rb`.
 
-## 3. `rwm exec` — run arbitrary commands across packages
+## 2. `rwm exec` — run arbitrary commands across packages
 
 `rwm run` only runs Rake tasks. But a lot of ad-hoc monorepo work is just "run this command in every package" — `bundle outdated`, `ruby -v`, `wc -l lib/**/*.rb`, etc. Having to define a Rake task for each one-off command is friction.
 
@@ -52,7 +46,7 @@ A Railtie could automate this: detect which workspace libs have `require: false`
 
 **Goal:** `rwm exec -- bundle outdated` runs the command in every package directory, with output prefixed by package name. Supports `--affected` and `--concurrency` for filtering and parallelism.
 
-## 4. Dependency version consistency checking
+## 3. Dependency version consistency checking
 
 A common monorepo pain point is version drift — one package pins `pg ~> 1.4` while another uses `pg ~> 1.5`. This silently bites you when packages are deployed together but were developed against different dependency versions. `rwm check` currently validates graph structure but doesn't look at gem versions.
 
@@ -65,7 +59,7 @@ A common monorepo pain point is version drift — one package pins `pg ~> 1.4` w
 
 **Goal:** Surface version inconsistencies across packages so teams can catch drift early. Likely a new flag on `rwm check` (e.g., `rwm check --versions`) so it integrates with the existing pre-push hook.
 
-## 5. Watch mode
+## 4. Watch mode
 
 `rwm watch spec` — re-run affected specs when files change. Ruby culture is deeply TDD-oriented, and the feedback loop of "save file → affected specs re-run instantly" is the workflow developers expect from tools like Guard.
 
@@ -78,7 +72,7 @@ A common monorepo pain point is version drift — one package pins `pg ~> 1.4` w
 
 **Goal:** `rwm watch spec` provides a fast TDD feedback loop — change a file in `auth`, specs for `auth` and its dependents re-run automatically.
 
-## 6. `rwm why <package>`
+## 5. `rwm why <package>`
 
 When `rwm affected` flags a package you didn't expect, there's no way to understand why without mentally tracing the dependency graph. This is especially confusing in large workspaces with deep transitive chains.
 
@@ -90,7 +84,7 @@ When `rwm affected` flags a package you didn't expect, there's no way to underst
 
 **Goal:** `rwm why billing` explains "billing is affected because auth changed, and billing depends on auth." `rwm why api auth` shows the dependency path from api to auth.
 
-## 7. Selective bootstrap
+## 6. Selective bootstrap
 
 `rwm bootstrap` installs and sets up every package in the workspace. After adding a single dependency to one package, you shouldn't have to wait for the entire workspace to re-bootstrap.
 
