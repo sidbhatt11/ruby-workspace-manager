@@ -2,13 +2,21 @@
 
 ## Supported Versions
 
-Until we reach 1.0, only the **latest** release receives security patches. We recommend pinning with `~>` (pessimistic) in your Gemfile and keeping it up to date:
+Until we reach 1.0, only the **latest** release receives security patches. There are no backports to older versions.
+
+If you want security fixes as soon as they ship, leave the version unconstrained:
+
+```ruby
+gem "ruby_workspace_manager"
+```
+
+If you prefer stability and can tolerate a short delay before upgrading, pin to the current minor:
 
 ```ruby
 gem "ruby_workspace_manager", "~> 0.6"
 ```
 
-This policy may change after 1.0, when we expect to support multiple minor release lines.
+Everything can break between minor versions before 1.0. This policy will be revisited after 1.0.
 
 ## Reporting a Vulnerability
 
