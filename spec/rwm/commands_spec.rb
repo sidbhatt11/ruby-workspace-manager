@@ -529,6 +529,61 @@ RSpec.describe "Commands" do
         expect(text).to include("Failed:")
       end
     end
+
+    it "runs a task on multiple named packages" do
+      with_workspace(packages: {
+        auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" },
+        billing: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" },
+        web: { type: :app, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+      }) do
+        output = StringIO.new
+        $stdout = output
+
+        result = described_class.new(["--no-cache", "ping", "auth", "billing"]).run
+
+        $stdout = STDOUT
+        expect(result).to eq(0)
+        text = output.string
+        expect(text).to include("2 package(s): 2 passed.")
+        expect(text).not_to include("[web]")
+      end
+    end
+
+    it "errors on non-existent package name" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        expect {
+          described_class.new(["--no-cache", "ping", "auth", "nope"]).run
+        }.to raise_error(Rwm::PackageNotFoundError, /nope/)
+      end
+    end
+
+    it "errors when --affected and explicit packages are both given" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        stderr = StringIO.new
+        $stderr = stderr
+
+        result = described_class.new(["--no-cache", "--affected", "ping", "auth"]).run
+
+        $stderr = STDERR
+        expect(result).to eq(1)
+        expect(stderr.string).to include("mutually exclusive")
+      end
+    end
+
+    it "deduplicates repeated package names" do
+      with_workspace(packages: {
+        auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+      }) do
+        output = StringIO.new
+        $stdout = output
+
+        result = described_class.new(["--no-cache", "ping", "auth", "auth"]).run
+
+        $stdout = STDOUT
+        expect(result).to eq(0)
+        expect(output.string).to include("1 package(s): 1 passed.")
+      end
+    end
   end
 
   describe Rwm::Commands::Init do

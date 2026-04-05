@@ -21,17 +21,23 @@ module Rwm
         task = @argv.shift
 
         unless task
-          $stderr.puts "Usage: rwm run <task> [<package>] [--affected] [--base REF] [--dry-run] [--no-cache] [--buffered] [--concurrency N]"
+          $stderr.puts "Usage: rwm run <task> [<package>...] [--affected] [--base REF] [--dry-run] [--no-cache] [--buffered] [--concurrency N]"
           return 1
         end
 
-        package_name = @argv.shift
+        package_names = @argv.dup.uniq
+        @argv.clear
+
+        if package_names.any? && @affected_only
+          $stderr.puts "Error: --affected and explicit package names are mutually exclusive."
+          return 1
+        end
 
         workspace = Workspace.find
         graph = DependencyGraph.load(workspace)
 
-        packages = if package_name
-                     [workspace.find_package(package_name)]
+        packages = if package_names.any?
+                     package_names.map { |name| workspace.find_package(name) }
                    elsif @affected_only
                      detector = AffectedDetector.new(workspace, graph, committed_only: @committed_only, base_branch: @base_branch)
                      affected = detector.affected_packages
