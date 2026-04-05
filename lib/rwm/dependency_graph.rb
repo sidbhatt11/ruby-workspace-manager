@@ -57,6 +57,24 @@ module Rwm
       visited.to_a
     end
 
+    # Walk the graph to find all transitive dependencies (what a package transitively depends on)
+    def transitive_dependencies(name)
+      visited = Set.new
+      queue = [name]
+
+      until queue.empty?
+        current = queue.shift
+        dependencies(current).each do |dep|
+          next if visited.include?(dep)
+
+          visited << dep
+          queue << dep
+        end
+      end
+
+      visited.to_a
+    end
+
     # Topological sort (dependencies before dependents)
     def topological_order
       tsort

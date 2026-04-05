@@ -61,6 +61,23 @@ RSpec.describe Rwm::DependencyGraph do
     end
   end
 
+  describe "#transitive_dependencies" do
+    it "returns all transitive dependencies" do
+      graph = build_graph
+      expect(graph.transitive_dependencies("api")).to contain_exactly("billing", "auth")
+    end
+
+    it "returns direct dependencies for a shallow package" do
+      graph = build_graph
+      expect(graph.transitive_dependencies("billing")).to contain_exactly("auth")
+    end
+
+    it "returns empty for packages with no dependencies" do
+      graph = build_graph
+      expect(graph.transitive_dependencies("auth")).to be_empty
+    end
+  end
+
   describe "#topological_order" do
     it "returns packages in dependency order" do
       graph = build_graph
