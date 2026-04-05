@@ -11,18 +11,13 @@ RWM discovers packages in your repository, builds a dependency graph from Gemfil
 
 ## Is this for me?
 
-**RWM is a good fit if you are:**
+RWM is useful whenever you have **multiple Ruby packages in one repository** and want structure around them. Common scenarios:
 
-- A Ruby team with **multiple apps sharing internal libraries** (auth, billing, notifications, etc.) and you want them in one repo with clear dependency boundaries, parallel test runs, and CI that only tests what changed.
-- **Outgrowing a single Rails app** — you're extracting shared code into libraries that multiple apps consume, and you need a way to manage the dependencies between them without publishing private gems.
-- Running **a few Rails apps that share domain logic** and you want one `git clone`, one `bootstrap` command, and a dependency graph that keeps everything honest.
+- **Multiple apps sharing internal libraries** (auth, billing, notifications) — you want clear dependency boundaries, parallel test runs, and CI that only tests what changed.
+- **Outgrowing a single Rails app** — you're extracting shared code into libraries that multiple apps consume, and you want to manage the dependencies between them without setting up a private gem server.
+- **Several Rails apps that share domain logic** — you want one `git clone`, one `bootstrap` command, and a dependency graph that keeps everything honest.
 
-**RWM is probably not for you if:**
-
-- You have a single app with no shared libraries. A standard Rails/Ruby project doesn't need monorepo tooling.
-- You need built-in gem versioning and publishing workflows. RWM doesn't provide these out of the box, but you can write Rake tasks for `gem build` and `gem push` and orchestrate them with `rwm run` like any other task.
-- You need polyglot support (Ruby + JS + Go in one repo). Tools like [Bazel](https://bazel.build/) or [Nx](https://nx.dev) are better suited for that.
-- You're already using Bundler path gems with a simple shell script and don't need caching, affected detection, or convention enforcement. RWM's value comes from those features — if you don't need them, you don't need RWM.
+RWM orchestrates Rake tasks. If you can express it as a Rake task, RWM can run it across your packages — tests, linting, builds, deploys, gem publishing, whatever your workflow needs.
 
 ## Quick start
 
