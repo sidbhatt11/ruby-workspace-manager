@@ -18,7 +18,55 @@ Both `rwm init` and `rwm bootstrap` are idempotent.
 
 You can scope bootstrap to specific packages: `rwm bootstrap auth billing` bootstraps only those packages plus their transitive dependencies. Root-level steps always run.
 
-**Note on parallel installs:** Step 4 runs `bundle install` concurrently across packages. If your packages share a gem installation directory (the default), you may see Bundler log `Waiting for another process to let go of lock`. This is normal — Bundler serializes writes to the shared directory automatically. On large monorepos with many packages, this can slow down bootstrap. If this becomes a bottleneck, consider using `BUNDLE_PATH` per-package or running bootstrap sequentially.
+## Parallel installs and Bundler
+
+### What you'll see
+
+Step 4 runs `bundle install` concurrently across packages. If your packages share a gem installation directory (the default), you may see:
+
+```
+Waiting for another process to let go of lock /path/to/.bundle/lock...
+```
+
+This is safe — Bundler handles it correctly. But it means parallel installs don't give you the speedup you might expect. The installs are effectively serial despite running in separate threads.
+
+### Why this happens
+
+In a monorepo, each package has its own Gemfile, its own dependency resolution, and its own `bundle install`. RWM schedules these in parallel, but they all write to the same shared gem directory — so Bundler serialises them with a file lock.
+
+Package managers with built-in workspace support (npm, Cargo, Go, Python's uv) avoid this by resolving and installing all packages in a single pass. Bundler was designed for single-application projects and doesn't have workspaces, so each package installs independently.
+
+### When it matters (and when it doesn't)
+
+**First bootstrap** (cold cache, all gems need downloading): the serialisation is noticeable. Every package's install contends on the shared gem directory.
+
+**Subsequent bootstraps** (gems already installed): `bundle install` is fast per-package because it just verifies the lockfile. The overhead is minimal.
+
+In practice, bootstrap is a one-time setup cost per machine. If you run it regularly after `git pull`, subsequent runs are fast.
+
+### Opting into per-package isolation (advanced)
+
+If parallel installs are a real bottleneck for your workflow, you can give each package its own gem installation directory by setting `BUNDLE_PATH` per-package:
+
+```sh
+# In each package's .bundle/config
+---
+BUNDLE_PATH: "vendor/bundle"
+```
+
+This eliminates the shared lock — each `bundle install` writes to its own `vendor/bundle/`, so they run truly in parallel with no contention.
+
+**Tradeoffs:**
+
+| | Shared (default) | Per-package isolation |
+|---|---|---|
+| Disk usage | Gems installed once | Gems duplicated per package |
+| Parallel install | Serialised (lock contention) | Truly parallel |
+| Dependency versions | One version per gem, shared | Packages can diverge silently |
+| Setup | Nothing to configure | Needs `.bundle/config` per package |
+| gitignore | Nothing extra | Add `vendor/bundle` |
+
+**Why shared is the default:** It works correctly, uses less disk, avoids version drift between packages, and matches how most Ruby projects work. Per-package isolation is an optimisation for large monorepos where first-bootstrap time is a real pain point — not something most workspaces need.
 
 ## The bootstrap rake task
 
