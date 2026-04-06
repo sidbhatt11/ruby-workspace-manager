@@ -87,6 +87,56 @@ RSpec.describe "Commands" do
         expect { described_class.new(["nope"]).run }.to raise_error(Rwm::PackageNotFoundError)
       end
     end
+
+    it "shows dependencies and dependents" do
+      with_workspace(packages: {
+        auth: { type: :lib },
+        billing: { type: :lib, deps: [:auth] }
+      }) do
+        output = StringIO.new
+        $stdout = output
+
+        result = described_class.new(["auth"]).run
+
+        $stdout = STDOUT
+        expect(result).to eq(0)
+        text = output.string
+        expect(text).to include("Dependents:   billing")
+      end
+    end
+
+    it "shows 'no' for package without Rakefile" do
+      with_workspace(packages: { auth: { type: :lib, rakefile: false } }) do
+        output = StringIO.new
+        $stdout = output
+
+        result = described_class.new(["auth"]).run
+
+        $stdout = STDOUT
+        expect(result).to eq(0)
+        expect(output.string).to include("Has Rakefile: no")
+      end
+    end
+
+    it "shows transitive dependents when they exceed direct dependents" do
+      with_workspace(packages: {
+        auth: { type: :lib },
+        billing: { type: :lib, deps: [:auth] },
+        api: { type: :app, deps: [:billing] }
+      }) do
+        output = StringIO.new
+        $stdout = output
+
+        result = described_class.new(["auth"]).run
+
+        $stdout = STDOUT
+        expect(result).to eq(0)
+        text = output.string
+        expect(text).to include("Dependents:   billing")
+        expect(text).to include("Transitive:")
+        expect(text).to include("api")
+      end
+    end
   end
 
   describe Rwm::Commands::Check do
@@ -584,6 +634,162 @@ RSpec.describe "Commands" do
         expect(output.string).to include("1 package(s): 1 passed.")
       end
     end
+
+    context "with caching" do
+      def stub_cache_declarations(declarations)
+        ok_status = instance_double(Process::Status, success?: true)
+        json_output = JSON.generate(declarations)
+        original_capture3 = Open3.method(:capture3)
+        allow(Open3).to receive(:capture3) do |*args, **kwargs|
+          if args.include?("rwm:cache_config")
+            [json_output, "", ok_status]
+          else
+            original_capture3.call(*args, **kwargs)
+          end
+        end
+      end
+
+      it "caches a passing task and skips on second run" do
+        with_workspace(packages: {
+          auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+        }) do
+          stub_cache_declarations("ping" => {})
+
+          output1 = StringIO.new
+          $stdout = output1
+          result1 = described_class.new(["ping"]).run
+          $stdout = STDOUT
+          expect(result1).to eq(0)
+          expect(output1.string).to include("1 passed")
+
+          output2 = StringIO.new
+          $stdout = output2
+          result2 = described_class.new(["ping"]).run
+          $stdout = STDOUT
+          expect(result2).to eq(0)
+          expect(output2.string).to include("[auth] cached")
+          expect(output2.string).to include("All packages cached")
+        end
+      end
+
+      it "does not store cache for failed tasks" do
+        with_workspace(packages: {
+          auth: { type: :lib, rakefile_content: "task :ping do\n  exit 1\nend" }
+        }) do
+          stub_cache_declarations("ping" => {})
+
+          output = StringIO.new
+          stderr = StringIO.new
+          $stdout = output
+          $stderr = stderr
+          result = described_class.new(["ping"]).run
+          $stdout = STDOUT
+          $stderr = STDERR
+
+          expect(result).to eq(1)
+          cache_file = File.join(Dir.pwd, ".rwm", "cache", "auth-ping")
+          expect(File.exist?(cache_file)).to be false
+        end
+      end
+
+      it "does not store cache for non-cacheable tasks" do
+        with_workspace(packages: {
+          auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+        }) do
+          stub_cache_declarations({})
+
+          output = StringIO.new
+          $stdout = output
+          result = described_class.new(["ping"]).run
+          $stdout = STDOUT
+
+          expect(result).to eq(0)
+          expect(output.string).to include("1 passed")
+          cache_file = File.join(Dir.pwd, ".rwm", "cache", "auth-ping")
+          expect(File.exist?(cache_file)).to be false
+        end
+      end
+    end
+
+    it "respects --concurrency option" do
+      with_workspace(packages: {
+        auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+      }) do
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new(["--no-cache", "--concurrency", "1", "ping"]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).to include("1 passed")
+      end
+    end
+
+    context "with --affected" do
+      it "runs only on affected packages" do
+        with_workspace(packages: {
+          auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" },
+          billing: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+        }) do
+          system("git", "-C", Dir.pwd, "add", ".", out: File::NULL, err: File::NULL)
+          system("git", "-C", Dir.pwd, "-c", "user.name=Test", "-c", "user.email=t@t.com",
+                 "commit", "-m", "init", "--no-gpg-sign", out: File::NULL, err: File::NULL)
+          File.write("libs/auth/lib/auth.rb", "module Auth; end\n# changed\n")
+
+          output = StringIO.new
+          $stdout = output
+          result = described_class.new(["--no-cache", "--affected", "ping"]).run
+          $stdout = STDOUT
+
+          expect(result).to eq(0)
+          text = output.string
+          expect(text).to include("Running on")
+          expect(text).to include("affected")
+        end
+      end
+
+      it "returns 0 when no packages are affected" do
+        with_workspace(packages: {
+          auth: { type: :lib, rakefile_content: "task :ping do\n  puts 'pong'\nend" }
+        }) do
+          system("git", "-C", Dir.pwd, "add", ".", out: File::NULL, err: File::NULL)
+          system("git", "-C", Dir.pwd, "-c", "user.name=Test", "-c", "user.email=t@t.com",
+                 "commit", "-m", "init", "--no-gpg-sign", out: File::NULL, err: File::NULL)
+
+          output = StringIO.new
+          $stdout = output
+          result = described_class.new(["--no-cache", "--affected", "--committed", "ping"]).run
+          $stdout = STDOUT
+
+          expect(result).to eq(0)
+          expect(output.string).to include("No affected packages")
+        end
+      end
+    end
+
+    it "returns 0 with no packages in workspace" do
+      with_workspace do
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new(["--no-cache", "ping"]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).to include("No packages found")
+      end
+    end
+
+    it "returns 0 when no packages have Rakefiles" do
+      with_workspace(packages: { auth: { type: :lib, rakefile: false } }) do
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new(["--no-cache", "ping"]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).to include("No packages with a Rakefile found")
+      end
+    end
   end
 
   describe Rwm::Commands::Init do
@@ -684,6 +890,266 @@ RSpec.describe "Commands" do
           }.to raise_error(Rwm::Error, /git init/)
           $stdout = STDOUT
         end
+      end
+    end
+
+    it "does not duplicate .rwm/ in .gitignore" do
+      Dir.mktmpdir do |dir|
+        system("git", "init", "--quiet", "--initial-branch=main", dir, out: File::NULL, err: File::NULL)
+
+        Dir.chdir(dir) do
+          File.write(".gitignore", ".rwm/\n")
+
+          $stdout = StringIO.new
+          allow(Rwm::Commands::Bootstrap).to receive_message_chain(:new, :run).and_return(0)
+          described_class.new([]).run
+          $stdout = STDOUT
+
+          expect(File.read(".gitignore").scan(".rwm/").size).to eq(1)
+        end
+      end
+    end
+
+    it "adds newline before .rwm/ when .gitignore lacks trailing newline" do
+      Dir.mktmpdir do |dir|
+        system("git", "init", "--quiet", "--initial-branch=main", dir, out: File::NULL, err: File::NULL)
+
+        Dir.chdir(dir) do
+          File.write(".gitignore", "node_modules")
+
+          $stdout = StringIO.new
+          allow(Rwm::Commands::Bootstrap).to receive_message_chain(:new, :run).and_return(0)
+          described_class.new([]).run
+          $stdout = STDOUT
+
+          content = File.read(".gitignore")
+          expect(content).to eq("node_modules\n.rwm/\n")
+        end
+      end
+    end
+  end
+
+  describe Rwm::Commands::Bootstrap do
+    def stub_bundle_commands
+      ok_status = instance_double(Process::Status, success?: true)
+      original_capture3 = Open3.method(:capture3)
+      allow(Open3).to receive(:capture3) do |*args, **kwargs|
+        if args.any? { |a| a == "bundle" }
+          ["", "", ok_status]
+        else
+          original_capture3.call(*args, **kwargs)
+        end
+      end
+    end
+
+    it "bootstraps workspace with packages" do
+      with_workspace(packages: {
+        auth: { type: :lib },
+        billing: { type: :lib, deps: [:auth] }
+      }) do
+        stub_bundle_commands
+
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new([]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        text = output.string
+        expect(text).to include("Bootstrap complete!")
+        expect(text).to include("Git hooks installed")
+        expect(text).to include("All conventions passed")
+        expect(File.exist?(".rwm/graph.json")).to be true
+      end
+    end
+
+    it "bootstraps targeted packages with transitive dependencies" do
+      with_workspace(packages: {
+        auth: { type: :lib },
+        billing: { type: :lib, deps: [:auth] },
+        web: { type: :app, deps: [:billing] }
+      }) do
+        stub_bundle_commands
+
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new(["billing"]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        text = output.string
+        expect(text).to include("2 package(s)")
+        expect(text).to include("billing + 1 dependencies")
+        expect(text).to include("Bootstrap complete!")
+      end
+    end
+
+    it "handles empty workspace" do
+      with_workspace do
+        stub_bundle_commands
+
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new([]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).to include("No packages found")
+      end
+    end
+
+    it "raises BootstrapError when bundle install fails" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        fail_status = instance_double(Process::Status, success?: false)
+        original_capture3 = Open3.method(:capture3)
+        allow(Open3).to receive(:capture3) do |*args, **kwargs|
+          if args.any? { |a| a == "bundle" }
+            ["", "error", fail_status]
+          else
+            original_capture3.call(*args, **kwargs)
+          end
+        end
+
+        output = StringIO.new
+        $stdout = output
+        expect {
+          described_class.new([]).run
+        }.to raise_error(Rwm::BootstrapError, /bundle install failed/)
+        $stdout = STDOUT
+      end
+    end
+
+    it "runs root-level bundle install and rake bootstrap when files exist" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        File.write("Gemfile", "source 'https://rubygems.org'\n")
+        File.write("Rakefile", "task :bootstrap do; end\n")
+        stub_bundle_commands
+
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new([]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).to include("bundle install...")
+        expect(output.string).to include("rake bootstrap...")
+      end
+    end
+
+    it "sets up overcommit when .overcommit.yml exists" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        File.write(".overcommit.yml", "# overcommit\n")
+        stub_bundle_commands
+        allow_any_instance_of(Rwm::Overcommit).to receive(:setup).and_return(true)
+
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new([]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).to include("Overcommit configured")
+      end
+    end
+
+    it "warns when overcommit setup fails" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        File.write(".overcommit.yml", "# overcommit\n")
+        stub_bundle_commands
+        allow_any_instance_of(Rwm::Overcommit).to receive(:setup).and_return(false)
+
+        output = StringIO.new
+        stderr = StringIO.new
+        $stdout = output
+        $stderr = stderr
+        result = described_class.new([]).run
+        $stdout = STDOUT
+        $stderr = STDERR
+
+        expect(result).to eq(0)
+        expect(stderr.string).to include("Could not install overcommit hooks")
+        expect(output.string).to include("Hook scripts and config created")
+      end
+    end
+
+    it "warns when git hooks setup fails" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        stub_bundle_commands
+        allow_any_instance_of(Rwm::GitHooks).to receive(:setup).and_return(false)
+
+        output = StringIO.new
+        stderr = StringIO.new
+        $stdout = output
+        $stderr = stderr
+        result = described_class.new([]).run
+        $stdout = STDOUT
+        $stderr = STDERR
+
+        expect(result).to eq(0)
+        expect(stderr.string).to include("Could not install git hooks")
+      end
+    end
+
+    it "skips rake bootstrap for packages without Rakefiles" do
+      with_workspace(packages: { auth: { type: :lib, rakefile: false } }) do
+        stub_bundle_commands
+
+        output = StringIO.new
+        $stdout = output
+        result = described_class.new([]).run
+        $stdout = STDOUT
+
+        expect(result).to eq(0)
+        expect(output.string).not_to include("Running bootstrap tasks")
+        expect(output.string).to include("Bootstrap complete!")
+      end
+    end
+
+    it "raises BootstrapError when rake bootstrap fails" do
+      with_workspace(packages: { auth: { type: :lib } }) do
+        ok_status = instance_double(Process::Status, success?: true)
+        fail_status = instance_double(Process::Status, success?: false)
+        original_capture3 = Open3.method(:capture3)
+        allow(Open3).to receive(:capture3) do |*args, **kwargs|
+          if args.any? { |a| a == "bundle" }
+            if args.include?("rake") && args.include?("bootstrap") && !args.include?("-T")
+              ["", "rake aborted!", fail_status]
+            else
+              ["", "", ok_status]
+            end
+          else
+            original_capture3.call(*args, **kwargs)
+          end
+        end
+
+        output = StringIO.new
+        $stdout = output
+        expect {
+          described_class.new([]).run
+        }.to raise_error(Rwm::BootstrapError, /rake bootstrap failed/)
+        $stdout = STDOUT
+      end
+    end
+
+    it "prints convention violations as warnings" do
+      with_workspace(packages: {
+        api: { type: :app },
+        auth: { type: :lib, deps: [:api] }
+      }) do
+        stub_bundle_commands
+
+        output = StringIO.new
+        stderr = StringIO.new
+        $stdout = output
+        $stderr = stderr
+        result = described_class.new([]).run
+        $stdout = STDOUT
+        $stderr = STDERR
+
+        expect(result).to eq(0)
+        expect(output.string).to include("Bootstrap complete!")
+        expect(stderr.string).to include("Convention violations")
+        expect(stderr.string).to include("lib 'auth' depends on app 'api'")
       end
     end
   end
