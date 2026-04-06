@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+
 module Rwm
   module Commands
     class Bootstrap
@@ -140,8 +142,8 @@ module Rwm
         return unless File.exist?(File.join(dir, "Gemfile"))
 
         puts "  bundle install..."
-        success = system("bundle", "install", chdir: dir)
-        unless success
+        _, _, status = Open3.capture3(Rwm.bundle_env(dir), "bundle", "install", chdir: dir)
+        unless status.success?
           raise BootstrapError, "bundle install failed in #{dir}"
         end
       end
@@ -150,13 +152,13 @@ module Rwm
         return unless File.exist?(File.join(dir, "Rakefile"))
 
         # Check if bootstrap task exists before running it
-        has_task = system("bundle", "exec", "rake", "-s", "-T", "bootstrap",
-                          chdir: dir, out: File::NULL, err: File::NULL)
-        return unless has_task
+        _, _, status = Open3.capture3(Rwm.bundle_env(dir), "bundle", "exec", "rake", "-s", "-T", "bootstrap",
+                                      chdir: dir)
+        return unless status.success?
 
         puts "  rake bootstrap..."
-        success = system("bundle", "exec", "rake", "bootstrap", chdir: dir)
-        unless success
+        _, _, status = Open3.capture3(Rwm.bundle_env(dir), "bundle", "exec", "rake", "bootstrap", chdir: dir)
+        unless status.success?
           raise BootstrapError, "rake bootstrap failed in #{dir}"
         end
       end
