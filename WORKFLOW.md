@@ -94,7 +94,7 @@ The release process:
 5. Git tag created and pushed
 6. Gem built with `gem build`
 7. GitHub release created with release notes and the `.gem` file attached
-8. Human pushes to RubyGems manually (not automated — intentional)
+8. Human pushes to RubyGems manually with MFA (not automated — this is a deliberate supply chain security measure)
 
 The AI handles steps 1-7. The human handles step 8. This keeps the human in control of what gets published to the public registry.
 

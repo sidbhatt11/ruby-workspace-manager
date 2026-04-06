@@ -25,3 +25,7 @@ If you discover a security vulnerability, please report it privately via [GitHub
 Do not open a public issue for security vulnerabilities.
 
 You can expect an initial response within 72 hours. Once confirmed, a fix will be prioritized and released as a patch version.
+
+## Gem Publishing
+
+Releases are pushed to RubyGems manually by the maintainer with MFA enabled. This is intentional — there is no CI/CD path to RubyGems, so a compromised pipeline cannot publish a malicious release.
