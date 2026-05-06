@@ -6,13 +6,22 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [0.6.5] - 2026-05-06
 
+> **Heads up — your task cache will be recomputed once on first run after upgrading.**
+> 0.6.5 introduces a versioned salt on the content-hash scheme (`CACHE_HASH_VERSION`).
+> Every entry already on disk under `.rwm/cache/` from 0.6.4 will be treated as a miss
+> exactly once; the next run repopulates the cache with the new digest format and
+> normal hit/miss behaviour resumes from then on. No manual `rm -rf .rwm/cache` is
+> needed and no data is lost — the first post-upgrade `rwm run` will simply do as
+> much work as it would on a fresh checkout. CI runners that persist `.rwm/cache/`
+> across builds will see one slow run, then steady state.
+
 ### Fixed
 - `TaskCache#content_hash` now iterates the dep graph in topological order with memoisation — deep dep chains no longer risk `SystemStackError` from the natural recursive formulation
 - `TaskCache#content_hash` streams source files into the SHA-256 digest in 64 KiB chunks instead of loading each file whole — multi-MB fixtures or generated assets no longer balloon memory during cache computation
 
 ### Added
 - Typed error classes: `Rwm::InvalidBaseRefError`, `Rwm::GemfileParseError`, `Rwm::CacheError` (all inherit from `Rwm::Error`). `AffectedDetector`, `GemfileParser` and `TaskCache` now raise these instead of generic `Rwm::Error` or untyped runtime errors. Existing rescues of `Rwm::Error` continue to catch them.
-- `TaskCache::CACHE_HASH_VERSION` — salts the content hash. Bumping the constant in any future change invalidates old caches cleanly. **Existing `.rwm/cache/` entries from 0.6.4 are treated as misses on first run after upgrade and get recomputed once.**
+- `TaskCache::CACHE_HASH_VERSION` — salts the content hash so future hashing-scheme changes can invalidate old caches cleanly instead of producing wrong cache hits. (See notice above for the one-time effect on upgrade.)
 - SECURITY.md "Trust boundary" section documenting that `Bundler::Dsl#eval_gemfile` executes arbitrary Ruby — RWM is for code you already trust; do not point it at untrusted Gemfiles or Rakefiles.
 
 ### Changed
