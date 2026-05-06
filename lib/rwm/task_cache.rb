@@ -170,9 +170,13 @@ module Rwm
       end
 
       # Dep hashes are guaranteed memoised by the topological iteration in #content_hash.
-      # If one is missing, a stale graph is the only explanation — let it raise.
+      # A nil here means the graph and the in-memory state disagree — surface it
+      # as a typed cache error rather than a generic TypeError from digest.update(nil).
       @graph.dependencies(package.name).sort.each do |dep_name|
-        digest.update(read_memoised_hash(dep_name))
+        dep_hash = read_memoised_hash(dep_name)
+        raise Rwm::CacheError, "Missing memoised hash for dep '#{dep_name}' of '#{package.name}' (stale dep graph?)" if dep_hash.nil?
+
+        digest.update(dep_hash)
       end
 
       digest.hexdigest

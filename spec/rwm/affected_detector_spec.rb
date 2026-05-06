@@ -64,7 +64,7 @@ RSpec.describe Rwm::AffectedDetector do
 
         expect {
           described_class.new(workspace, graph, base_branch: "nonexistent")
-        }.to raise_error(Rwm::Error, /Base ref 'nonexistent' does not exist/)
+        }.to raise_error(Rwm::InvalidBaseRefError, /Base ref 'nonexistent' does not exist/)
       end
     end
 

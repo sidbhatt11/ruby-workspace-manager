@@ -76,5 +76,24 @@ RSpec.describe Rwm::GemfileParser do
         expect(deps).to be_empty
       end
     end
+
+    it "raises GemfileParseError when the Gemfile has a syntax error" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib }
+        })
+
+        gemfile_path = File.join(dir, "libs", "auth", "Gemfile")
+        # Unterminated string literal — Ruby will refuse to parse this.
+        File.write(gemfile_path, %(source "https://rubygems.org\ngemspec\n))
+
+        workspace = Rwm::Workspace.find(dir)
+        auth = workspace.find_package("auth")
+
+        expect {
+          described_class.parse(auth.gemfile_path, workspace.packages)
+        }.to raise_error(Rwm::GemfileParseError, /Failed to parse Gemfile/)
+      end
+    end
   end
 end

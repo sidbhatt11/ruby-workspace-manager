@@ -17,7 +17,11 @@ module Rwm
 
     def parse
       dsl = Bundler::Dsl.new
-      dsl.eval_gemfile(@gemfile_path)
+      begin
+        dsl.eval_gemfile(@gemfile_path)
+      rescue Bundler::GemfileError, SyntaxError => e
+        raise Rwm::GemfileParseError.new(@gemfile_path, e.message)
+      end
       deps = dsl.dependencies
 
       gemfile_dir = File.expand_path(File.dirname(@gemfile_path))

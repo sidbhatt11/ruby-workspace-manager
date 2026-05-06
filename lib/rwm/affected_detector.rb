@@ -62,7 +62,7 @@ module Rwm
       _, _, status = Open3.capture3("git", "-C", workspace.root, "rev-parse", "--verify", "#{@base_branch}^{commit}")
       return if status.success?
 
-      raise Rwm::Error, "Base ref '#{@base_branch}' does not exist. Check the branch name or pass a valid --base ref."
+      raise Rwm::InvalidBaseRefError, @base_branch
     end
 
     def detect_base_branch

@@ -113,6 +113,26 @@ RSpec.describe Rwm::TaskCache do
         expect(auth_hash).not_to eq(billing_hash)
       end
     end
+
+    it "raises CacheError when a dep's hash is missing from the topological iteration" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: {
+          auth: { type: :lib },
+          billing: { type: :lib, deps: [:auth] }
+        })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        billing = workspace.find_package("billing")
+
+        # Simulate a stale graph: topological_order silently omits the dep
+        # so its hash is never memoised before we try to consume it.
+        allow(graph).to receive(:topological_order).and_return(["billing"])
+
+        cache = described_class.new(workspace, graph)
+        expect { cache.content_hash(billing) }
+          .to raise_error(Rwm::CacheError, /Missing memoised hash for dep 'auth'/)
+      end
+    end
   end
 
   describe "#cached? and #store" do
