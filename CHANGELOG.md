@@ -4,6 +4,20 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-05-06
+
+### Fixed
+- `TaskCache#content_hash` now iterates the dep graph in topological order with memoisation — deep dep chains no longer risk `SystemStackError` from the natural recursive formulation
+- `TaskCache#content_hash` streams source files into the SHA-256 digest in 64 KiB chunks instead of loading each file whole — multi-MB fixtures or generated assets no longer balloon memory during cache computation
+
+### Added
+- Typed error classes: `Rwm::InvalidBaseRefError`, `Rwm::GemfileParseError`, `Rwm::CacheError` (all inherit from `Rwm::Error`). `AffectedDetector`, `GemfileParser` and `TaskCache` now raise these instead of generic `Rwm::Error` or untyped runtime errors. Existing rescues of `Rwm::Error` continue to catch them.
+- `TaskCache::CACHE_HASH_VERSION` — salts the content hash. Bumping the constant in any future change invalidates old caches cleanly. **Existing `.rwm/cache/` entries from 0.6.4 are treated as misses on first run after upgrade and get recomputed once.**
+- SECURITY.md "Trust boundary" section documenting that `Bundler::Dsl#eval_gemfile` executes arbitrary Ruby — RWM is for code you already trust; do not point it at untrusted Gemfiles or Rakefiles.
+
+### Changed
+- `DependencyGraph#to_json_data` takes `workspace_root:` as a keyword argument. The internal `@workspace_root` ivar (previously set as a side effect of `save`) is gone; `save` passes the root through. Calling `to_json_data(workspace_root: dir)` directly now produces correct paths without first calling `save`.
+
 ## [0.6.4] - 2026-04-05
 
 ### Fixed
