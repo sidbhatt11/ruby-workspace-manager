@@ -82,39 +82,27 @@ module Rwm
       !matches.empty?
     end
 
-    # Compute a content hash for a package: SHA256 of all source files + dependency hashes
+    # Compute a content hash for a package: SHA256 of all source files + dependency hashes.
+    # Walks `package` and its transitive deps in topological order (deps before dependents)
+    # so each dep's hash is memoised before any package that depends on it is hashed —
+    # avoids the unbounded recursion of the natural recursive formulation on deep chains.
     def content_hash(package)
-      @content_hash_mutex.synchronize do
-        return @content_hashes[package.name] if @content_hashes.key?(package.name)
+      cached = read_memoised_hash(package.name)
+      return cached if cached
+
+      needed = @graph.transitive_dependencies(package.name).to_set
+      needed << package.name
+
+      @graph.topological_order.each do |name|
+        next unless needed.include?(name)
+        next if read_memoised_hash(name)
+
+        pkg = name == package.name ? package : @workspace.find_package(name)
+        computed = compute_single_package_hash(pkg)
+        @content_hash_mutex.synchronize { @content_hashes[pkg.name] ||= computed }
       end
 
-      digest = Digest::SHA256.new
-      digest.update(CACHE_HASH_VERSION)
-
-      # Hash all source files in the package (sorted for determinism).
-      # Stream in 64 KiB chunks so multi-MB files don't load whole into memory.
-      source_files(package).each do |file|
-        rel_path = file.delete_prefix("#{package.path}/")
-        digest.update(rel_path)
-        File.open(file, "rb") do |f|
-          while (chunk = f.read(64 * 1024))
-            digest.update(chunk)
-          end
-        end
-      end
-
-      # Include dependency content hashes (transitive invalidation).
-      # If a dependency is missing, let it raise — a stale graph should
-      # not silently produce incorrect cache hits.
-      @graph.dependencies(package.name).sort.each do |dep_name|
-        dep_pkg = @workspace.find_package(dep_name)
-        digest.update(content_hash(dep_pkg))
-      end
-
-      computed = digest.hexdigest
-      @content_hash_mutex.synchronize do
-        @content_hashes[package.name] = computed
-      end
+      read_memoised_hash(package.name)
     end
 
     # Preload cache declarations for multiple packages in parallel.
@@ -160,6 +148,35 @@ module Rwm
     end
 
     private
+
+    def read_memoised_hash(name)
+      @content_hash_mutex.synchronize { @content_hashes[name] }
+    end
+
+    def compute_single_package_hash(package)
+      digest = Digest::SHA256.new
+      digest.update(CACHE_HASH_VERSION)
+
+      # Hash all source files in the package (sorted for determinism).
+      # Stream in 64 KiB chunks so multi-MB files don't load whole into memory.
+      source_files(package).each do |file|
+        rel_path = file.delete_prefix("#{package.path}/")
+        digest.update(rel_path)
+        File.open(file, "rb") do |f|
+          while (chunk = f.read(64 * 1024))
+            digest.update(chunk)
+          end
+        end
+      end
+
+      # Dep hashes are guaranteed memoised by the topological iteration in #content_hash.
+      # If one is missing, a stale graph is the only explanation — let it raise.
+      @graph.dependencies(package.name).sort.each do |dep_name|
+        digest.update(read_memoised_hash(dep_name))
+      end
+
+      digest.hexdigest
+    end
 
     def source_files(package)
       # Tracked files + untracked-but-not-ignored files (null-delimited for safe filenames)

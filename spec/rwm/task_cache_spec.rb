@@ -326,6 +326,39 @@ RSpec.describe Rwm::TaskCache do
     end
   end
 
+  describe "#content_hash with deep dependency chains" do
+    it "iterates rather than recurses — a 1000-package chain does not raise SystemStackError" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { root: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        real_root = workspace.find_package("root")
+
+        graph = Rwm::DependencyGraph.new
+        graph.add_package(real_root)
+
+        chain_size = 1000
+        stub_struct = Struct.new(:name, :path)
+        stub_packages = (1...chain_size).map do |i|
+          pkg = stub_struct.new("pkg_#{i}", real_root.path)
+          graph.add_package(pkg)
+          pkg
+        end
+
+        graph.add_edge("pkg_1", "root")
+        (2...chain_size).each { |i| graph.add_edge("pkg_#{i}", "pkg_#{i - 1}") }
+
+        # Single dispatching stub avoids O(N²) RSpec mock matching on chain_size .with(...) calls.
+        lookup = stub_packages.each_with_object("root" => real_root) { |sp, h| h[sp.name] = sp }
+        allow(workspace).to receive(:find_package) { |name| lookup.fetch(name) }
+
+        cache = described_class.new(workspace, graph)
+        allow(cache).to receive(:source_files).and_return([])
+
+        expect { cache.content_hash(stub_packages.last) }.not_to raise_error
+      end
+    end
+  end
+
   describe "#content_hash with missing dependency" do
     it "raises PackageNotFoundError when a dependency is missing" do
       Dir.mktmpdir do |dir|
