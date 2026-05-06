@@ -59,6 +59,29 @@ RSpec.describe Rwm::TaskCache do
       end
     end
 
+    it "produces a stable hash across chunk boundaries on multi-MB files" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        pkg = workspace.find_package("auth")
+
+        # 1 MiB of varied bytes — spans ~16 read chunks at 64 KiB each.
+        big_path = File.join(pkg.path, "lib", "big_fixture.bin")
+        File.binwrite(big_path, (0..255).to_a.pack("C*") * 4096)
+
+        # Stage so git ls-files picks it up (source_files relies on git).
+        Dir.chdir(pkg.path) { system("git", "add", "lib/big_fixture.bin", out: File::NULL, err: File::NULL) }
+
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        hash_1 = described_class.new(workspace, graph).content_hash(pkg)
+        hash_2 = described_class.new(workspace, graph).content_hash(pkg)
+
+        expect(hash_1).to eq(hash_2)
+        expect(hash_1).to match(/\A[0-9a-f]{64}\z/)
+      end
+    end
+
     it "salts the hash with CACHE_HASH_VERSION so a scheme change invalidates old caches" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: { auth: { type: :lib } })

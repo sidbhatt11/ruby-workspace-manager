@@ -91,11 +91,16 @@ module Rwm
       digest = Digest::SHA256.new
       digest.update(CACHE_HASH_VERSION)
 
-      # Hash all source files in the package (sorted for determinism)
+      # Hash all source files in the package (sorted for determinism).
+      # Stream in 64 KiB chunks so multi-MB files don't load whole into memory.
       source_files(package).each do |file|
         rel_path = file.delete_prefix("#{package.path}/")
         digest.update(rel_path)
-        digest.update(File.read(file))
+        File.open(file, "rb") do |f|
+          while (chunk = f.read(64 * 1024))
+            digest.update(chunk)
+          end
+        end
       end
 
       # Include dependency content hashes (transitive invalidation).
