@@ -40,4 +40,18 @@ module Rwm
   end
 
   class BootstrapError < Error; end
+
+  class InvalidBaseRefError < Error
+    def initialize(ref)
+      super("Base ref '#{ref}' does not exist. Check the branch name or pass a valid --base ref.")
+    end
+  end
+
+  class GemfileParseError < Error
+    def initialize(path, cause_message)
+      super("Failed to parse Gemfile at #{path}: #{cause_message}")
+    end
+  end
+
+  class CacheError < Error; end
 end
