@@ -59,6 +59,22 @@ RSpec.describe Rwm::TaskCache do
       end
     end
 
+    it "salts the hash with CACHE_HASH_VERSION so a scheme change invalidates old caches" do
+      Dir.mktmpdir do |dir|
+        create_fixture_workspace(dir, packages: { auth: { type: :lib } })
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+        pkg = workspace.find_package("auth")
+
+        hash_v1 = described_class.new(workspace, graph).content_hash(pkg)
+
+        stub_const("#{described_class}::CACHE_HASH_VERSION", "v2")
+        hash_v2 = described_class.new(workspace, graph).content_hash(pkg)
+
+        expect(hash_v1).not_to eq(hash_v2)
+      end
+    end
+
     it "differs between packages with different content" do
       Dir.mktmpdir do |dir|
         create_fixture_workspace(dir, packages: {

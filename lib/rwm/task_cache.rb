@@ -8,6 +8,11 @@ require "open3"
 
 module Rwm
   class TaskCache
+    # Salt: bump when the hashing scheme changes (file ordering, what gets
+    # included, normalisation rules) so existing caches become misses rather
+    # than wrong hits.
+    CACHE_HASH_VERSION = "v1"
+
     def self.clean(workspace, package_name: nil)
       cache_dir = File.join(workspace.root, ".rwm", "cache")
       return unless Dir.exist?(cache_dir)
@@ -84,6 +89,7 @@ module Rwm
       end
 
       digest = Digest::SHA256.new
+      digest.update(CACHE_HASH_VERSION)
 
       # Hash all source files in the package (sorted for determinism)
       source_files(package).each do |file|
