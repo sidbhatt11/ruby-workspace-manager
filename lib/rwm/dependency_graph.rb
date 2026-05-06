@@ -187,22 +187,21 @@ module Rwm
     end
 
     # Serialize to JSON for .rwm/graph.json
-    def to_json_data
+    def to_json_data(workspace_root: "")
       {
         "version" => 1,
         "generated_at" => Time.now.iso8601,
         "packages" => @packages.transform_values do |pkg|
-          { "name" => pkg.name, "type" => pkg.type.to_s, "path" => pkg.relative_path(@workspace_root || "") }
+          { "name" => pkg.name, "type" => pkg.type.to_s, "path" => pkg.relative_path(workspace_root) }
         end,
         "edges" => @edges.transform_values(&:sort)
       }
     end
 
     def save(path, workspace_root)
-      @workspace_root = workspace_root
       dir = File.dirname(path)
       FileUtils.mkdir_p(dir)
-      write_locked(path, JSON.pretty_generate(to_json_data) + "\n")
+      write_locked(path, JSON.pretty_generate(to_json_data(workspace_root: workspace_root)) + "\n")
     end
 
     def to_dot

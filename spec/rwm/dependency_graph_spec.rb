@@ -436,5 +436,14 @@ RSpec.describe Rwm::DependencyGraph do
         expect(data["edges"]["api"]).to contain_exactly("auth", "billing")
       end
     end
+
+    it "produces correct relative paths when called directly without prior save" do
+      graph = build_graph
+      data = graph.to_json_data(workspace_root: "/tmp")
+
+      expect(data["packages"]["auth"]["path"]).to eq("libs/auth")
+      expect(data["packages"]["billing"]["path"]).to eq("libs/billing")
+      expect(data["packages"]["api"]["path"]).to eq("apps/api")
+    end
   end
 end
