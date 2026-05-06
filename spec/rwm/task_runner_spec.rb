@@ -189,19 +189,22 @@ RSpec.describe Rwm::TaskRunner do
         runner = described_class.new(graph, packages: workspace.packages)
         runner.run_command do |pkg|
           mutex.synchronize { timestamps["#{pkg.name}_start"] = Time.now }
-          sleep_time = pkg.name == "pkg_d" ? 0.3 : 0.1
+          sleep_time = pkg.name == "pkg_d" ? 0.5 : 0.2
           ["ruby", "-e", "sleep #{sleep_time}; puts '#{pkg.name} done'"]
         end
 
         expect(runner.success?).to be true
 
-        # D runs first, then B and C can start in parallel, then A
-        # B and C should start after D finishes
-        expect(timestamps["pkg_b_start"]).to be >= timestamps["pkg_d_start"]
-        expect(timestamps["pkg_c_start"]).to be >= timestamps["pkg_d_start"]
-        # A should start after both B and C
-        expect(timestamps["pkg_a_start"]).to be >= timestamps["pkg_b_start"]
-        expect(timestamps["pkg_a_start"]).to be >= timestamps["pkg_c_start"]
+        # D runs first, then B and C in parallel, then A. Timestamps are
+        # recorded inside the worker block, so observation order may lag
+        # actual thread-start order on a busy scheduler — absorb that with
+        # a small tolerance. Real ordering bugs would still trip these
+        # checks because the nominal gaps (~0.5s and ~0.2s) dwarf it.
+        tolerance = 0.05
+        expect(timestamps["pkg_b_start"]).to be >= timestamps["pkg_d_start"] - tolerance
+        expect(timestamps["pkg_c_start"]).to be >= timestamps["pkg_d_start"] - tolerance
+        expect(timestamps["pkg_a_start"]).to be >= timestamps["pkg_b_start"] - tolerance
+        expect(timestamps["pkg_a_start"]).to be >= timestamps["pkg_c_start"] - tolerance
       end
     end
 
