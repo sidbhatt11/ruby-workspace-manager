@@ -4,6 +4,8 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-05-30
+
 ### Fixed
 - `rwm affected` and `rwm <task> --affected` now raise `Rwm::InvalidBaseRefError` instead of silently reporting "nothing affected" and exiting 0 when they cannot compare against the base branch — a false-green that previously hit shallow CI clones, fork PRs, non-`main` default branches, and even the documented `git fetch origin main --depth=1` recipe (which leaves no local `main`). The resolved base ref is now validated whether it was auto-detected or passed via `--base`, and a failed base diff (`<base>...HEAD` — e.g. a shallow clone with no reachable merge-base) errors with a hint to fetch more history or pass a valid `--base`. Staged and unstaged working-tree diff failures stay non-fatal.
 
