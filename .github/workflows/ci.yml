@@ -32,6 +32,10 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ruby
+          # Default suite is high-precision security only. security-and-quality adds
+          # the extended security queries plus maintainability/reliability queries
+          # (dead code, unused assignments, correctness smells).
+          queries: security-and-quality
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
