@@ -24,7 +24,9 @@ module Rwm
       @graph = graph
       @committed_only = committed_only
       @base_branch = base_branch || detect_base_branch
-      validate_base_branch! if base_branch
+      # Validate the *resolved* base, auto-detected or explicit. An unreachable base
+      # must fail loudly rather than silently report "nothing affected" (false-green CI).
+      validate_base_branch!
     end
 
     # Returns packages directly changed + their transitive dependents
@@ -91,10 +93,21 @@ module Rwm
     def detect_changed_files
       files = Set.new
 
-      # 1. Committed changes: base branch vs HEAD
+      # 1. Committed changes: base branch vs HEAD. A failure here means we cannot
+      # compare against the base (e.g. a shallow clone whose merge-base is below the
+      # fetched boundary). That must be loud — a silent empty result false-greens CI.
       Rwm.debug("affected: git diff --name-only #{base_branch}...HEAD")
-      committed, _, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only", "#{base_branch}...HEAD")
-      committed.lines.each { |l| files << l.chomp } if status.success?
+      committed, committed_err, status = Open3.capture3("git", "-C", workspace.root, "diff", "--name-only", "#{base_branch}...HEAD")
+      unless status.success?
+        raise Rwm::InvalidBaseRefError.new(
+          base_branch,
+          reason: "Could not compute changes against base '#{base_branch}': " \
+                  "git diff #{base_branch}...HEAD failed (#{committed_err.strip}). " \
+                  "If this is a shallow clone, fetch more history " \
+                  "(e.g. `git fetch origin #{base_branch} --unshallow`) or pass a valid --base."
+        )
+      end
+      committed.lines.each { |l| files << l.chomp }
 
       unless @committed_only
         # 2. Staged changes (not yet committed)

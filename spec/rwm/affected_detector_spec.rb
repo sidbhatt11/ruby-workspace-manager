@@ -68,6 +68,25 @@ RSpec.describe Rwm::AffectedDetector do
       end
     end
 
+    it "raises when the auto-detected base ref does not exist (instead of silently reporting nothing)" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: { auth: { type: :lib } },
+          changed_files: { "libs/auth/lib/auth.rb" => "module Auth; CHANGED = 1; end" }
+        )
+        # Remove main/master so the auto-detect fallback ("main") is unreachable —
+        # mirrors a shallow CI clone, a fork PR, or a non-main default branch.
+        system("git", "-C", dir, "branch", "-m", "main", "trunk", out: File::NULL, err: File::NULL)
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        expect {
+          described_class.new(workspace, graph)
+        }.to raise_error(Rwm::InvalidBaseRefError, /main/)
+      end
+    end
+
     it "falls back to master when symbolic-ref fails and master exists" do
       Dir.mktmpdir do |dir|
         setup_git_workspace(dir, packages: { auth: { type: :lib } })
@@ -105,6 +124,8 @@ RSpec.describe Rwm::AffectedDetector do
     it "extracts branch from symbolic-ref when available" do
       Dir.mktmpdir do |dir|
         setup_git_workspace(dir, packages: { auth: { type: :lib } })
+        # origin/HEAD points at develop, so develop must be a real ref to pass validation
+        system("git", "-C", dir, "branch", "develop", out: File::NULL, err: File::NULL)
 
         workspace = Rwm::Workspace.find(dir)
         graph = Rwm::DependencyGraph.build(workspace)
@@ -381,7 +402,7 @@ RSpec.describe Rwm::AffectedDetector do
   end
 
   describe "git diff failure handling" do
-    it "handles failed git diff commands gracefully" do
+    it "raises when the base diff fails even though the base ref resolves (shallow clone, missing merge-base)" do
       Dir.mktmpdir do |dir|
         setup_git_workspace(dir,
           packages: { auth: { type: :lib } },
@@ -391,11 +412,35 @@ RSpec.describe Rwm::AffectedDetector do
         workspace = Rwm::Workspace.find(dir)
         graph = Rwm::DependencyGraph.build(workspace)
 
+        # base ("main") resolves fine, so the ref check passes — but the base diff
+        # itself fails, as in a shallow clone whose merge-base is below the boundary.
         fail_status = instance_double(Process::Status, success?: false)
         allow(Open3).to receive(:capture3).and_call_original
-        # Stub all three diff commands to fail
-        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only", anything)
-          .and_return(["", "error", fail_status])
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only", "main...HEAD")
+          .and_return(["", "fatal: no merge base", fail_status])
+
+        detector = described_class.new(workspace, graph)
+        expect { detector.affected_packages }.to raise_error(Rwm::InvalidBaseRefError, /main/)
+      end
+    end
+
+    it "stays graceful when only the working-tree (staged/unstaged) diffs fail" do
+      Dir.mktmpdir do |dir|
+        setup_git_workspace(dir,
+          packages: { auth: { type: :lib } },
+          changed_files: {}
+        )
+
+        workspace = Rwm::Workspace.find(dir)
+        graph = Rwm::DependencyGraph.build(workspace)
+
+        ok_status   = instance_double(Process::Status, success?: true)
+        fail_status = instance_double(Process::Status, success?: false)
+        allow(Open3).to receive(:capture3).and_call_original
+        # Base diff succeeds (no committed changes); the working-tree diffs fail —
+        # that stays graceful (empty), unlike a base-diff failure.
+        allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only", "main...HEAD")
+          .and_return(["", "", ok_status])
         allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only", "--cached")
           .and_return(["", "error", fail_status])
         allow(Open3).to receive(:capture3).with("git", "-C", workspace.root, "diff", "--name-only")

@@ -42,8 +42,8 @@ module Rwm
   class BootstrapError < Error; end
 
   class InvalidBaseRefError < Error
-    def initialize(ref)
-      super("Base ref '#{ref}' does not exist. Check the branch name or pass a valid --base ref.")
+    def initialize(ref, reason: nil)
+      super(reason || "Base ref '#{ref}' does not exist. Check the branch name or pass a valid --base ref.")
     end
   end
 
