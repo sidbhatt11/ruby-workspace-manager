@@ -4,6 +4,12 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- `rwm affected` and `rwm <task> --affected` now raise `Rwm::InvalidBaseRefError` instead of silently reporting "nothing affected" and exiting 0 when they cannot compare against the base branch — a false-green that previously hit shallow CI clones, fork PRs, non-`main` default branches, and even the documented `git fetch origin main --depth=1` recipe (which leaves no local `main`). The resolved base ref is now validated whether it was auto-detected or passed via `--base`, and a failed base diff (`<base>...HEAD` — e.g. a shallow clone with no reachable merge-base) errors with a hint to fetch more history or pass a valid `--base`. Staged and unstaged working-tree diff failures stay non-fatal.
+
+### Added
+- Documentation (`docs/running-tasks.md`): the task cache content hash excludes the Ruby interpreter version, so after upgrading a root `.ruby-version` you should run `rwm cache clean` once for tasks to re-run under the new Ruby. A package-local `.ruby-version` is hashed like any other source file and invalidates automatically.
+
 ## [0.6.5] - 2026-05-06
 
 > **Heads up — your task cache will be recomputed once on first run after upgrading.**
