@@ -85,13 +85,6 @@ Document them in `docs/command-reference.md`. Keep generic `Rwm::Error` → 1 as
 
 **Effort:** ~1 hour.
 
-### P2.3 — `RWM_CACHE_DIR` (configurable cache location) — *low priority*
-
-The documented CI flow already persists the cache by pointing `actions/cache` at the known
-`.rwm/` path (`docs/running-tasks.md:171`), so this is not load-bearing. Only worth doing if
-the cache needs to live **outside** the workspace tree (shared/read-only CI mount). Park until
-needed.
-
 ---
 
 ## P3 — Features (scale / scripting) — lower urgency
