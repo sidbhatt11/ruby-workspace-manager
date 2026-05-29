@@ -72,6 +72,8 @@ For each (package, task) pair, RWM:
 
 Source files are discovered via `git ls-files` (tracked + untracked-but-not-ignored), so anything in `.gitignore` is excluded from the hash.
 
+> **The Ruby version is not part of the hash.** The cache key is built from your git-tracked files plus the workspace dependency graph — not the Ruby interpreter. If you upgrade Ruby (for example, bumping a root `.ruby-version` from `3.3` to `3.4`), existing cache entries still match and tasks are skipped even though they have never run under the new Ruby. **After a Ruby upgrade, clear the cache once so everything re-runs:** `rwm cache clean` (or pass `--no-cache` for that run). A *package-local* `.ruby-version` is the exception — it lives inside the package directory, so it is hashed like any other source file and changing it invalidates that package automatically.
+
 ### Transitive invalidation
 
 A package's content hash includes the content hashes of its dependencies, recursively:
