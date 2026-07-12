@@ -4,6 +4,10 @@ All notable changes to Ruby Workspace Manager are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- The packaged gem now ships the `docs/` guides and `CHANGELOG.md` alongside the code. Vendored or offline copies carry the full documentation, and the README's relative links to `docs/*.md` resolve inside the installed gem instead of dangling.
+- `documentation_uri` gem metadata — RubyGems.org now links directly to the guides.
+
 ## [0.6.6] - 2026-05-30
 
 ### Fixed

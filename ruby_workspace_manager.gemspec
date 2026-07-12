@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
-  spec.files = Dir.glob("{bin,lib,completions}/**/*") + %w[LICENSE.txt README.md]
+  spec.files = Dir.glob("{bin,lib,completions,docs}/**/*") + %w[LICENSE.txt README.md CHANGELOG.md]
   spec.bindir = "bin"
   spec.executables = ["rwm"]
   spec.require_paths = ["lib"]
@@ -23,4 +23,5 @@ Gem::Specification.new do |spec|
 
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["documentation_uri"] = "#{spec.homepage}/tree/main/docs"
 end
