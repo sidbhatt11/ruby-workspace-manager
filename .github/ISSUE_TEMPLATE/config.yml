@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions, ideas, feedback & experience reports
+    url: https://github.com/sidbhatt11/ruby-workspace-manager/discussions
+    about: RWM has no telemetry — Discussions is how the project learns anything. Praise, complaints, and questions all welcome.
+  - name: Security reports
+    url: https://github.com/sidbhatt11/ruby-workspace-manager/security/policy
+    about: Please report vulnerabilities privately, not in a public issue.

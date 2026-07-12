@@ -102,6 +102,14 @@ The `.rwm/` directory is created automatically and gitignored by `rwm init`. It 
 
 **Content-hash caching over timestamps.** The cache uses SHA256 content hashes rather than file timestamps. Timestamps change on branch switches and rebases. Content hashes are deterministic. This is the same model that [redo](https://cr.yp.to/redo.html) and [Bazel](https://bazel.build/) use.
 
+## Community and feedback
+
+RWM collects no data — no telemetry, no update checks, nothing, ever. If it helps you or fights you, the only way anyone finds out is if you say so:
+
+- **[Discussions](https://github.com/sidbhatt11/ruby-workspace-manager/discussions)** — questions, ideas, experience reports, praise, complaints. Start with [what does your Ruby workspace look like?](https://github.com/sidbhatt11/ruby-workspace-manager/discussions/30)
+- **[Issues](https://github.com/sidbhatt11/ruby-workspace-manager/issues)** — bugs and the [road to 1.0](https://github.com/sidbhatt11/ruby-workspace-manager/milestone/1)
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — note that RWM is a solo project and doesn't accept code contributions right now
+
 ## Resources
 
 - **[Nx](https://nx.dev)** — The JavaScript monorepo tool that inspired RWM's workspace model, affected detection, and task caching.
