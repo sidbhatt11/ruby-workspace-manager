@@ -8,5 +8,5 @@ group :development, :test do
   gem "bundler-audit", "~> 0.9"
   gem "rspec", "~> 3.0"
   gem "rake", "~> 13.0"
-  gem "simplecov", "~> 0.22", require: false
+  gem "simplecov", "~> 1.0", require: false
 end
